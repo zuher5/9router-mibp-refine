@@ -8,17 +8,19 @@ A local AI routing gateway with provider fallback and token-saving features. Thi
 - **OpenCode V2 integration** — native `providers.9router` route for OpenCode configs (models[], activeModel, subagent model).
 - **One-shot installer** — a fresh machine goes from zero to a running dashboard with one command (below).
 
-## Installation (refine fork — one-shot)
+## Installation
 
 Requires Node.js 22 or newer.
 
-### Windows (PowerShell)
+### Option 1: One-shot installer (recommended)
+
+#### Windows (PowerShell)
 
 ```powershell
 irm https://raw.githubusercontent.com/zuher5/9router-mibp-refine/master/scripts/install-server.ps1 | iex
 ```
 
-### Linux / macOS
+#### Linux / macOS
 
 ```bash
 bash <(curl -fsSL https://raw.githubusercontent.com/zuher5/9router-mibp-refine/master/scripts/install-server.sh)
@@ -31,68 +33,57 @@ What the installer does: clones the repo into `./9router` (if you're not already
 - Stop the server with `Ctrl+C`. For background/auto-start, run the standalone build under PM2/systemd/Task Scheduler — see [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 - Data (database, machine-id, CLI secrets) lives in `%APPDATA%\9router` (Windows) or `~/.9router` (Linux/macOS); override with `DATA_DIR`.
 
-## Installation (upstream options)
-
-These follow the original project's distribution channels.
-
-### Option 1: Docker
-
-Pull the image:
+### Option 2: Git clone (manual, from source)
 
 ```bash
-docker pull mhiqrambhrng/9router-mibp-version:latest
-```
-
-Run the container:
-
-```bash
-mkdir -p 9router-data
-docker run -d \
-  --name 9router \
-  -p 20128:20128 \
-  -v 9router-data:/app/data \
-  -e DATA_DIR=/app/data \
-  -e PORT=20128 \
-  -e HOSTNAME=0.0.0.0 \
-  -e NODE_ENV=production \
-  -e JWT_SECRET=<generate-with-openssl-rand-hex-32> \
-  -e INITIAL_PASSWORD=<your-dashboard-password> \
-  -e API_KEY_SECRET=<generate-with-openssl-rand-hex-32> \
-  -e MACHINE_ID_SALT=<generate-with-openssl-rand-hex-32> \
-  mhiqrambhrng/9router-mibp-version:latest
-```
-
-Or using Docker Compose (a `docker-compose.yml` is included in this repo):
-
-```bash
-cp .env.example .env   # fill in JWT_SECRET, INITIAL_PASSWORD, API_KEY_SECRET, MACHINE_ID_SALT
-docker compose up -d
-```
-
-Dashboard opens at `http://localhost:20128/dashboard`.
-
-### Option 2: Manual (from source)
-
-Requirements: Node.js 22 or newer.
-
-```bash
-git clone https://github.com/mhiqrambg/9router-mibp-version.git
-cd 9router-mibp-version
-
-cp .env.example .env
-# Edit .env: set JWT_SECRET, INITIAL_PASSWORD, API_KEY_SECRET, MACHINE_ID_SALT
+git clone https://github.com/zuher5/9router-mibp-refine.git
+cd 9router-mibp-refine
 
 npm install
-
-# Development server
-npm run dev
-
-# Or production build
 npm run build
-npm run start
 ```
 
-Dashboard opens at `http://localhost:20128/dashboard`.
+Then start the production server with your own secrets:
+
+#### Linux / macOS
+
+```bash
+export PORT=20128
+export JWT_SECRET=$(openssl rand -hex 32)
+export INITIAL_PASSWORD=$(openssl rand -hex 12)
+export API_KEY_SECRET=$(openssl rand -hex 32)
+export MACHINE_ID_SALT=$(openssl rand -hex 32)
+node .next/standalone/custom-server.js
+```
+
+#### Windows (PowerShell)
+
+```powershell
+$env:PORT = "20128"
+$env:JWT_SECRET    = (New-Guid).ToString("N") + (New-Guid).ToString("N")
+$env:INITIAL_PASSWORD = (New-Guid).ToString("N").Substring(0, 24)
+$env:API_KEY_SECRET = (New-Guid).ToString("N") + (New-Guid).ToString("N")
+$env:MACHINE_ID_SALT = (New-Guid).ToString("N") + (New-Guid).ToString("N")
+node .next\standalone\custom-server.js
+```
+
+Dashboard opens at `http://localhost:20128/dashboard` — log in with the `INITIAL_PASSWORD` you set (change it from the dashboard after first login). For a dev server with hot reload instead, run `npm run dev` (serves on port 20127).
+
+### Option 3: Docker (build from this repo)
+
+Build the image locally (no prebuilt image is published — build from source so the image always matches this fork):
+
+```bash
+git clone https://github.com/zuher5/9router-mibp-refine.git
+cd 9router-mibp-refine
+
+# Set the same secrets in a local .env first
+cp .env.example .env   # fill in JWT_SECRET, INITIAL_PASSWORD, API_KEY_SECRET, MACHINE_ID_SALT
+
+docker compose up -d --build   # uses the included docker-compose.yml (build: .)
+```
+
+Dashboard opens at `http://localhost:20128/dashboard`. Data persists in the `9router-data` volume.
 
 ## More Information
 
