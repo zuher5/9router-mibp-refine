@@ -25,30 +25,23 @@ export default function HermesToolCard({
   tailscaleEnabled,
   tailscaleUrl,
 }) {
-  const [hermesStatus, setHermesStatus] = useState(initialStatus || null);
+  const [status, setStatus] = useState(initialStatus || null);
   const [checking, setChecking] = useState(false);
   const [applying, setApplying] = useState(false);
   const [restoring, setRestoring] = useState(false);
   const [message, setMessage] = useState(null);
   const [selectedApiKey, setSelectedApiKey] = useState("");
-  const [selectedModel, setSelectedModel] = useState("");
   const [modalOpen, setModalOpen] = useState(false);
   const [modelAliases, setModelAliases] = useState({});
   const [showManualConfigModal, setShowManualConfigModal] = useState(false);
   const [customBaseUrl, setCustomBaseUrl] = useState("");
-  const hasInitializedModel = useRef(false);
+  const [selectedModels, setSelectedModels] = useState([]);
+  const [activeModel, setActiveModel] = useState("");
+  const selectedModelsRef = useRef([]);
 
-  const currentBaseUrl = hermesStatus?.settings?.model?.base_url || "";
-
-  const getConfigStatus = () => {
-    if (!hermesStatus?.installed) return null;
-    const cfg = hermesStatus.settings?.model;
-    if (!cfg?.base_url) return "not_configured";
-    if (matchKnownEndpoint(cfg.base_url, { tunnelPublicUrl, tailscaleUrl })) return "configured";
-    return "other";
-  };
-
-  const configStatus = getConfigStatus();
+  useEffect(() => {
+    selectedModelsRef.current = selectedModels;
+  }, [selectedModels]);
 
   useEffect(() => {
     if (apiKeys?.length > 0 && !selectedApiKey) {
@@ -57,15 +50,25 @@ export default function HermesToolCard({
   }, [apiKeys, selectedApiKey]);
 
   useEffect(() => {
-    if (initialStatus) setHermesStatus(initialStatus);
+    if (initialStatus) setStatus(initialStatus);
   }, [initialStatus]);
 
   useEffect(() => {
     if (isExpanded) {
-      if (!hermesStatus) checkStatus();
+      if (!status) checkStatus();
       fetchModelAliases();
     }
   }, [isExpanded]);
+
+  // Sync models from existing config
+  useEffect(() => {
+    if (Array.isArray(status?.hermes?.models)) {
+      setSelectedModels(status.hermes.models);
+    }
+    if (status?.hermes?.activeModel) {
+      setActiveModel(status.hermes.activeModel);
+    }
+  }, [status]);
 
   const fetchModelAliases = async () => {
     try {
@@ -77,26 +80,33 @@ export default function HermesToolCard({
     }
   };
 
-  useEffect(() => {
-    if (hermesStatus?.installed && !hasInitializedModel.current) {
-      hasInitializedModel.current = true;
-      const cfg = hermesStatus.settings?.model;
-      if (cfg?.default) setSelectedModel(cfg.default);
-    }
-  }, [hermesStatus]);
-
-  const checkStatus = async () => {
-    setChecking(true);
+  const saveModels = async (models) => {
     try {
-      const res = await fetch(ENDPOINT);
-      const data = await res.json();
-      setHermesStatus(data);
+      const body = {
+        baseUrl: getEffectiveBaseUrl(),
+        models,
+        activeModel: models.includes(activeModel) ? activeModel : (models[0] || ""),
+      };
+      if (selectedApiKey?.trim()) body.apiKey = selectedApiKey.trim();
+      await fetch(ENDPOINT, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
     } catch (error) {
-      setHermesStatus({ installed: false, error: error.message });
-    } finally {
-      setChecking(false);
+      console.log("Error saving models:", error);
     }
   };
+
+  const currentBaseUrl = status?.settings?.model?.base_url || status?.hermes?.baseURL || "";
+
+  const getConfigStatus = () => {
+    if (!status?.installed) return null;
+    if (!status.has9Router) return "not_configured";
+    return matchKnownEndpoint(currentBaseUrl, { tunnelPublicUrl, tailscaleUrl }) ? "configured" : "other";
+  };
+
+  const configStatus = getConfigStatus();
 
   const normalizeLocalhost = (url) => url.replace("://localhost", "://127.0.0.1");
 
@@ -112,26 +122,39 @@ export default function HermesToolCard({
     return url.endsWith("/v1") ? url : `${url}/v1`;
   };
 
+  const getDisplayUrl = () => customBaseUrl || `${getLocalBaseUrl()}/v1`;
+
+  const checkStatus = async () => {
+    setChecking(true);
+    try {
+      const res = await fetch(ENDPOINT);
+      const data = await res.json();
+      setStatus(data);
+    } catch (error) {
+      setStatus({ installed: false, error: error.message });
+    } finally {
+      setChecking(false);
+    }
+  };
+
   const handleApply = async () => {
     setApplying(true);
     setMessage(null);
     try {
-      const keyToUse = selectedApiKey?.trim()
-        || (apiKeys?.length > 0 ? apiKeys[0].key : null)
-        || (!cloudEnabled ? "sk_9router" : null);
+      const body = {
+        baseUrl: getEffectiveBaseUrl(),
+        models: selectedModels,
+        activeModel: activeModel === "" ? "" : (activeModel || selectedModels[0]),
+      };
+      if (selectedApiKey?.trim()) body.apiKey = selectedApiKey.trim();
 
       const res = await fetch(ENDPOINT, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          baseUrl: getEffectiveBaseUrl(),
-          apiKey: keyToUse,
-          model: selectedModel,
-        }),
+        body: JSON.stringify(body),
       });
       const data = await res.json();
       if (res.ok) {
-        // Remember the endpoint so it stays selectable next time
         rememberEndpoint(getEffectiveBaseUrl(), { tunnelPublicUrl, tailscaleUrl });
         setMessage({ type: "success", text: "Settings applied successfully!" });
         checkStatus();
@@ -145,6 +168,53 @@ export default function HermesToolCard({
     }
   };
 
+  const handleSetActive = async (model) => {
+    const nextActive = model === activeModel ? "" : model;
+    setActiveModel(nextActive);
+    setMessage(null);
+    try {
+      const body = {
+        baseUrl: currentBaseUrl || getEffectiveBaseUrl(),
+        models: selectedModels,
+        activeModel: nextActive || selectedModels[0],
+      };
+      if (selectedApiKey?.trim()) body.apiKey = selectedApiKey.trim();
+      const res = await fetch(ENDPOINT, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(body),
+      });
+      if (res.ok) {
+        setMessage({ type: "success", text: nextActive ? `Active model set to ${nextActive}` : `Active model cleared` });
+        checkStatus();
+      } else {
+        const data = await res.json();
+        setMessage({ type: "error", text: data.error || "Failed to set active model" });
+      }
+    } catch (error) {
+      setMessage({ type: "error", text: error.message });
+    }
+  };
+
+  const handleRemoveModel = async (model) => {
+    setMessage(null);
+    try {
+      const res = await fetch(`${ENDPOINT}?model=${encodeURIComponent(model)}`, { method: "DELETE" });
+      const data = await res.json();
+      if (res.ok) {
+        const newModels = selectedModels.filter((m) => m !== model);
+        setSelectedModels(newModels);
+        if (activeModel === model) setActiveModel("");
+        setMessage({ type: "success", text: `Model "${model}" removed` });
+        checkStatus();
+      } else {
+        setMessage({ type: "error", text: data.error || "Failed to remove model" });
+      }
+    } catch (error) {
+      setMessage({ type: "error", text: error.message });
+    }
+  };
+
   const handleReset = async () => {
     setRestoring(true);
     setMessage(null);
@@ -153,7 +223,8 @@ export default function HermesToolCard({
       const data = await res.json();
       if (res.ok) {
         setMessage({ type: "success", text: "Settings reset successfully!" });
-        setSelectedModel("");
+        setSelectedModels([]);
+        setActiveModel("");
         checkStatus();
       } else {
         setMessage({ type: "error", text: data.error || "Failed to reset settings" });
@@ -165,17 +236,30 @@ export default function HermesToolCard({
     }
   };
 
-  const handleModelSelect = (model) => {
-    setSelectedModel(model.value);
-    setModalOpen(false);
-  };
-
   const getManualConfigs = () => {
     const keyToUse = (selectedApiKey && selectedApiKey.trim())
       ? selectedApiKey
       : (!cloudEnabled ? "sk_9router" : "<API_KEY_FROM_DASHBOARD>");
 
-    const yamlContent = `model:\n  default: "${selectedModel || "provider/model-id"}"\n  provider: "custom"\n  base_url: "${getEffectiveBaseUrl()}"\n  api_key: \${OPENAI_API_KEY}\n`;
+    const modelsToShow = selectedModels.length > 0 ? selectedModels : ["provider/model-id"];
+    const activeModelToShow = activeModel || modelsToShow[0];
+
+    const yamlContent = [
+      `model:`,
+      `  default: "${activeModelToShow}"`,
+      `  provider: "9router"`,
+      `  base_url: "${getEffectiveBaseUrl()}"`,
+      `  api_key: \${OPENAI_API_KEY}`,
+      `providers:`,
+      `  9router:`,
+      `    name: "9router"`,
+      `    api: "${getEffectiveBaseUrl()}"`,
+      `    key_env: OPENAI_API_KEY`,
+      `    default_model: "${activeModelToShow}"`,
+      `    models:`,
+      ...modelsToShow.map((m) => `      - "${m}"`),
+      "",
+    ].join("\n");
     const envContent = `OPENAI_API_KEY=${keyToUse}\n`;
 
     return [
@@ -213,7 +297,7 @@ export default function HermesToolCard({
             </div>
           )}
 
-          {!checking && hermesStatus && !hermesStatus.installed && (
+          {!checking && status && !status.installed && (
             <div className="flex flex-col gap-4">
               <div className="flex flex-col gap-3 p-4 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
                 <div className="flex items-start gap-3">
@@ -233,14 +317,15 @@ export default function HermesToolCard({
             </div>
           )}
 
-          {!checking && hermesStatus?.installed && (
+          {!checking && status?.installed && (
             <>
               <div className="flex flex-col gap-2">
+                {/* Select Endpoint */}
                 <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-[8rem_auto_1fr] sm:items-center sm:gap-2">
                   <span className="text-xs font-semibold text-text-main sm:text-right sm:text-sm">Select Endpoint</span>
                   <span className="material-symbols-outlined hidden text-text-muted text-[14px] sm:inline">arrow_forward</span>
                   <BaseUrlSelect
-                    value={customBaseUrl || getEffectiveBaseUrl()}
+                    value={customBaseUrl || getDisplayUrl()}
                     onChange={setCustomBaseUrl}
                     requiresExternalUrl={tool.requiresExternalUrl}
                     tunnelEnabled={tunnelEnabled}
@@ -251,30 +336,73 @@ export default function HermesToolCard({
                   />
                 </div>
 
-                {hermesStatus?.settings?.model?.base_url && (
+                {/* Current configured */}
+                {currentBaseUrl && (
                   <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-[8rem_auto_1fr_auto] sm:items-center sm:gap-2">
                     <span className="text-xs font-semibold text-text-main sm:text-right sm:text-sm">Current</span>
                     <span className="material-symbols-outlined hidden text-text-muted text-[14px] sm:inline">arrow_forward</span>
                     <span className="min-w-0 truncate rounded bg-surface/40 px-2 py-2 text-xs text-text-muted sm:py-1.5">
-                      {hermesStatus.settings.model.base_url}
+                      {currentBaseUrl}
                     </span>
                   </div>
                 )}
 
+                {/* API Key */}
                 <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-[8rem_auto_1fr_auto] sm:items-center sm:gap-2">
                   <span className="text-xs font-semibold text-text-main sm:text-right sm:text-sm">API Key</span>
                   <span className="material-symbols-outlined hidden text-text-muted text-[14px] sm:inline">arrow_forward</span>
                   <ApiKeySelect value={selectedApiKey} onChange={setSelectedApiKey} apiKeys={apiKeys} cloudEnabled={cloudEnabled} />
                 </div>
 
-                <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-[8rem_auto_1fr_auto] sm:items-center sm:gap-2">
-                  <span className="text-xs font-semibold text-text-main sm:text-right sm:text-sm">Default Model</span>
-                  <span className="material-symbols-outlined hidden text-text-muted text-[14px] sm:inline">arrow_forward</span>
-                  <div className="relative w-full min-w-0">
-                    <input type="text" value={selectedModel} onChange={(e) => setSelectedModel(e.target.value)} placeholder="provider/model-id" className="w-full min-w-0 pl-2 pr-7 py-2 bg-surface rounded border border-border text-xs focus:outline-none focus:ring-1 focus:ring-primary/50 sm:py-1.5" />
-                    {selectedModel && <button onClick={() => setSelectedModel("")} className="absolute right-1 top-1/2 -translate-y-1/2 p-0.5 text-text-muted hover:text-red-500 rounded transition-colors" title="Clear"><span className="material-symbols-outlined text-[14px]">close</span></button>}
+                {/* Models */}
+                <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-[8rem_auto_1fr] sm:items-start sm:gap-2">
+                  <span className="w-32 shrink-0 text-sm font-semibold text-text-main text-right pt-1">Models</span>
+                  <span className="material-symbols-outlined text-text-muted text-[14px] mt-1.5">arrow_forward</span>
+                  <div className="flex-1 flex flex-col gap-2">
+                    <div className="flex flex-wrap gap-1.5 min-h-[28px] px-2 py-1.5 bg-surface rounded border border-border">
+                      {selectedModels.length === 0 ? (
+                        <span className="text-xs text-text-muted">No models selected</span>
+                      ) : (
+                        selectedModels.map((model) => (
+                          <span
+                            key={model}
+                            onClick={() => handleSetActive(model)}
+                            className={`inline-flex items-center gap-1 px-2 py-0.5 rounded text-xs cursor-pointer transition-colors ${
+                              model === activeModel
+                                ? "bg-primary/10 text-primary border border-primary"
+                                : "bg-black/5 dark:bg-white/5 text-text-muted border border-transparent hover:border-border"
+                            }`}
+                            title={model === activeModel ? "This is the active model" : "Click to set as active"}
+                          >
+                            {model === activeModel && <span className="material-symbols-outlined text-[10px]">star</span>}
+                            {model}
+                            <button
+                              onClick={async (e) => {
+                                e.stopPropagation();
+                                await handleRemoveModel(model);
+                              }}
+                              className="ml-0.5 hover:text-red-500"
+                              title="Remove model"
+                            >
+                              <span className="material-symbols-outlined text-[12px]">close</span>
+                            </button>
+                          </span>
+                        ))
+                      )}
+                    </div>
+                    <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-[8rem_auto_1fr_auto] sm:items-center sm:gap-2">
+                      <button onClick={() => setModalOpen(true)} disabled={!hasActiveProviders} className={`px-2 py-1 rounded border text-xs transition-colors ${hasActiveProviders ? "bg-surface border-border text-text-main hover:border-primary cursor-pointer" : "opacity-50 cursor-not-allowed border-border"}`}>Add Model</button>
+                      <span className="text-xs text-text-muted">
+                        {selectedModels.length > 0 && activeModel ? (
+                          <>Active: <span className="text-primary">{activeModel}</span></>
+                        ) : selectedModels.length > 0 ? (
+                          <span className="text-yellow-500">Click a model to set as active</span>
+                        ) : (
+                          "Select models to add"
+                        )}
+                      </span>
+                    </div>
                   </div>
-                  <button onClick={() => setModalOpen(true)} disabled={!hasActiveProviders} className={`w-full sm:w-auto rounded border px-2 py-2 text-xs transition-colors sm:py-1.5 whitespace-nowrap sm:shrink-0 ${hasActiveProviders ? "bg-surface border-border text-text-main hover:border-primary cursor-pointer" : "opacity-50 cursor-not-allowed border-border"}`}>Select</button>
                 </div>
               </div>
 
@@ -285,14 +413,14 @@ export default function HermesToolCard({
                 </div>
               )}
 
-              <div className="flex flex-col sm:flex-row sm:items-center gap-2">
-                <Button variant="primary" size="sm" onClick={handleApply} disabled={!selectedModel} loading={applying} className="w-full sm:w-auto">
+              <div className="grid grid-cols-1 gap-2 sm:flex sm:items-center">
+                <Button variant="primary" size="sm" onClick={handleApply} disabled={selectedModels.length === 0} loading={applying}>
                   <span className="material-symbols-outlined text-[14px] mr-1">save</span>Apply
                 </Button>
-                <Button variant="outline" size="sm" onClick={handleReset} disabled={!hermesStatus?.has9Router} loading={restoring} className="w-full sm:w-auto">
+                <Button variant="outline" size="sm" onClick={handleReset} disabled={!status.has9Router} loading={restoring}>
                   <span className="material-symbols-outlined text-[14px] mr-1">restore</span>Reset
                 </Button>
-                <Button variant="ghost" size="sm" onClick={() => setShowManualConfigModal(true)} className="w-full sm:w-auto">
+                <Button variant="ghost" size="sm" onClick={() => setShowManualConfigModal(true)}>
                   <span className="material-symbols-outlined text-[14px] mr-1">content_copy</span>Manual Config
                 </Button>
               </div>
@@ -304,12 +432,29 @@ export default function HermesToolCard({
       {modalOpen && (
         <ModelSelectModal
           isOpen={modalOpen}
-          onClose={() => setModalOpen(false)}
-          onSelect={handleModelSelect}
-          selectedModel={selectedModel}
+          onClose={() => {
+            setModalOpen(false);
+            saveModels(selectedModelsRef.current);
+          }}
+          onSelect={(model) => {
+            if (!selectedModels.includes(model.value)) {
+              setSelectedModels([...selectedModels, model.value]);
+              if (!activeModel) setActiveModel(model.value);
+            }
+          }}
+          onDeselect={(model) => {
+            const remaining = selectedModels.filter(m => m !== model.value);
+            setSelectedModels(remaining);
+            if (activeModel === model.value) {
+              setActiveModel(remaining[0] || "");
+            }
+          }}
+          selectedModel={null}
           activeProviders={activeProviders}
           modelAliases={modelAliases}
-          title="Select Model for Hermes Agent"
+          addedModelValues={selectedModels}
+          closeOnSelect={false}
+          title="Add Model for Hermes Agent"
         />
       )}
 

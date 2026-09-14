@@ -1,5 +1,5 @@
 const api = require("../api/client");
-const { pause, confirm } = require("../utils/input");
+const { pause, confirm, prompt } = require("../utils/input");
 const { showStatus } = require("../utils/display");
 const { selectModelFromList } = require("../utils/modelSelector");
 const { showMenuWithBack } = require("../utils/menuHelper");
@@ -515,11 +515,37 @@ async function showOpenCodeMenu(port, breadcrumb = []) {
 
 // ─── Hermes Agent ─────────────────────────────────────────────────────────────
 
+function hermesModels(status) {
+  const h = status?.hermes;
+  if (Array.isArray(h?.models) && h.models.length > 0) return h.models;
+  return status?.settings?.model?.default ? [status.settings.model.default] : [];
+}
+
+function hermesActiveModel(status) {
+  const h = status?.hermes;
+  return h?.activeModel || status?.settings?.model?.default || "";
+}
+
+function hermesBaseUrl(status) {
+  const h = status?.hermes;
+  return h?.baseURL || status?.settings?.model?.base_url || "";
+}
+
+// Re-persist the current model list (used by Add/Remove/Set-Active) keeping the
+// configured endpoint; passes the dashboard API key only when one exists.
+async function hermesPersist(status, models, activeModel, port) {
+  const apiKey = await getFirstApiKey();
+  const url = hermesBaseUrl(status) || (await getEndpoint(port)).endpoint;
+  const body = { baseUrl: url, models, activeModel };
+  if (apiKey) body.apiKey = apiKey;
+  return api.applyCliToolSettings("hermes", body);
+}
+
 async function buildHermesHeader() {
   const result = await api.getCliToolSettings("hermes");
   if (!result.success) return `  ${COLORS.red}Failed to load settings${COLORS.reset}`;
 
-  const { installed, has9Router, settings } = result.data;
+  const { installed, has9Router } = result.data;
   if (!installed) return `Status:   ${COLORS.red}✗ Hermes Agent not installed${COLORS.reset}`;
 
   if (!has9Router) {
@@ -529,10 +555,13 @@ async function buildHermesHeader() {
     ].join("\n");
   }
 
-  const model = settings?.model || {};
   const lines = [`Status:   ${COLORS.green}✓ Configured${COLORS.reset}`];
-  if (model.base_url) lines.push(`Endpoint: ${COLORS.cyan}${model.base_url}${COLORS.reset}`);
-  if (model.default)  lines.push(`Model:    ${COLORS.dim}${model.default}${COLORS.reset}`);
+  const url = hermesBaseUrl(result.data);
+  if (url) lines.push(`Endpoint: ${COLORS.cyan}${url}${COLORS.reset}`);
+  const active = hermesActiveModel(result.data);
+  if (active) lines.push(`Active:   ${COLORS.dim}${active}${COLORS.reset}`);
+  const models = hermesModels(result.data);
+  if (models.length > 0) lines.push(`Models:   ${COLORS.dim}${models.join(", ")}${COLORS.reset}`);
   return lines.join("\n");
 }
 
@@ -546,12 +575,112 @@ async function hermesQuickSetup(port) {
     return;
   }
 
-  const model = await selectModelFromList("Select Hermes Model", "", { excludeCombos: true });
-  if (!model) return;
+  // Pick first model (also becomes active model by default)
+  const firstModel = await selectModelFromList("Select Active Model (Hermes)", "", { excludeCombos: true });
+  if (!firstModel) return;
 
-  const result = await api.applyCliToolSettings("hermes", { baseUrl: endpoint, apiKey, model });
+  const models = [firstModel];
+
+  // Optionally add more models
+  while (true) {
+    const more = await confirm(`Add another model? (current: ${models.length})`);
+    if (!more) break;
+    const next = await selectModelFromList(`Add Model #${models.length + 1}`, models.join(", "), { excludeCombos: true });
+    if (!next) break;
+    if (!models.includes(next)) models.push(next);
+  }
+
+  const result = await api.applyCliToolSettings("hermes", {
+    baseUrl: endpoint,
+    apiKey,
+    models,
+    activeModel: firstModel,
+  });
   showStatus(result.success ? "Hermes setup completed!" : `Failed: ${result.error}`, result.success ? "success" : "error");
   await pause();
+}
+
+// Numbered picker over the currently installed Hermes models.
+async function pickFromInstalledModels(models, title, current) {
+  if (!models || models.length === 0) {
+    showStatus("No Hermes models configured yet. Run Quick Setup first.", "error");
+    await pause();
+    return null;
+  }
+  console.log(`\n  ${COLORS.cyan}${title}:${COLORS.reset}`);
+  models.forEach((m, i) => {
+    const mark = m === current ? `${COLORS.green} ★${COLORS.reset}` : "";
+    console.log(`    ${i + 1}. ${m}${mark}`);
+  });
+  console.log(`    0. Cancel`);
+  const answer = await prompt("    Select: ");
+  const idx = parseInt(answer, 10);
+  if (isNaN(idx) || idx <= 0 || idx > models.length) return null;
+  return models[idx - 1];
+}
+
+async function hermesAddModel(port) {
+  const { status } = await getHermesStatusRef();
+  if (!status?.has9Router) {
+    showStatus("Hermes not configured yet. Run Quick Setup first.", "error");
+    await pause();
+    return;
+  }
+  const models = hermesModels(status);
+  const active = hermesActiveModel(status);
+  const next = await selectModelFromList("Add Hermes Model", active, { excludeCombos: true });
+  if (!next) return;
+  if (models.includes(next)) {
+    showStatus(`Model "${next}" is already installed.`, "error");
+    await pause();
+    return;
+  }
+  const result = await hermesPersist(status, [...models, next], active, port);
+  showStatus(result.success ? `Model "${next}" added!` : `Failed: ${result.error}`, result.success ? "success" : "error");
+  await pause();
+}
+
+async function hermesRemoveModel(port) {
+  const { status } = await getHermesStatusRef();
+  if (!status?.has9Router) {
+    showStatus("Hermes not configured yet. Run Quick Setup first.", "error");
+    await pause();
+    return;
+  }
+  const models = hermesModels(status);
+  const active = hermesActiveModel(status);
+  const target = await pickFromInstalledModels(models, "Select model to remove", active);
+  if (!target) return;
+  const remaining = models.filter((m) => m !== target);
+  if (remaining.length === 0) {
+    showStatus("Cannot remove the last model. Use Reset to remove everything.", "error");
+    await pause();
+    return;
+  }
+  const result = await hermesPersist(status, remaining, active === target ? remaining[0] : active, port);
+  showStatus(result.success ? `Model "${target}" removed!` : `Failed: ${result.error}`, result.success ? "success" : "error");
+  await pause();
+}
+
+async function hermesSetActive(port) {
+  const { status } = await getHermesStatusRef();
+  if (!status?.has9Router) {
+    showStatus("Hermes not configured yet. Run Quick Setup first.", "error");
+    await pause();
+    return;
+  }
+  const models = hermesModels(status);
+  const active = hermesActiveModel(status);
+  const target = await pickFromInstalledModels(models, "Select active model", active);
+  if (!target || target === active) return;
+  const result = await hermesPersist(status, models, target, port);
+  showStatus(result.success ? `Active model set to "${target}"!` : `Failed: ${result.error}`, result.success ? "success" : "error");
+  await pause();
+}
+
+async function getHermesStatusRef() {
+  const result = await api.getCliToolSettings("hermes");
+  return result.success ? { status: result.data } : { status: null };
 }
 
 async function hermesReset() {
@@ -568,6 +697,9 @@ async function showHermesMenu(port, breadcrumb = []) {
     refresh: async () => ({}),
     items: [
       { label: "⚡ Quick Setup", action: async () => { await hermesQuickSetup(port); return true; } },
+      { label: "➕ Add Model", action: async () => { await hermesAddModel(port); return true; } },
+      { label: "🗑 Remove Model", action: async () => { await hermesRemoveModel(port); return true; } },
+      { label: "⭐ Set Active Model", action: async () => { await hermesSetActive(port); return true; } },
       { label: "Reset to Default", action: async () => { await hermesReset(); return true; } }
     ]
   });
