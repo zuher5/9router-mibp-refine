@@ -57,9 +57,9 @@ export default function OpenCodeToolCard({ tool, isExpanded, onToggle, baseUrl, 
       setActiveModel(status.opencode.activeModel);
     }
 
-    // Parse subagent settings from agent.explorer if exists
-    if (status?.config?.agent?.explorer?.model?.startsWith("9router/")) {
-      setSubagentModel(status.config.agent.explorer.model.replace("9router/", ""));
+    // Parse subagent settings from config (V2 agents.explorer or legacy agent.explorer)
+    if (status?.opencode?.subagentModel) {
+      setSubagentModel(status.opencode.subagentModel);
     }
   }, [status]);
 
@@ -95,13 +95,16 @@ export default function OpenCodeToolCard({ tool, isExpanded, onToggle, baseUrl, 
     }
   };
 
-  const currentBaseUrl = status?.config?.provider?.["9router"]?.options?.baseURL || "";
+  // Read 9router baseURL from either V2 (providers.settings) or V1 (provider.options) config
+  const getConfigBaseURL = (cfg) => cfg?.providers?.["9router"]?.settings?.baseURL || cfg?.provider?.["9router"]?.options?.baseURL || "";
+
+  const currentBaseUrl = getConfigBaseURL(status?.config);
 
   const getConfigStatus = () => {
     if (!status?.installed) return null;
     if (!status.config) return "not_configured";
     if (!status.has9Router) return "not_configured";
-    const url = status.config?.provider?.["9router"]?.options?.baseURL || "";
+    const url = getConfigBaseURL(status.config);
     return matchKnownEndpoint(url, { tunnelPublicUrl, tailscaleUrl }) ? "configured" : "other";
   };
 
@@ -196,25 +199,25 @@ export default function OpenCodeToolCard({ tool, isExpanded, onToggle, baseUrl, 
 
     const modelsObj = {};
     modelsToShow.forEach(m => {
-      modelsObj[m] = { name: m, modalities: { input: ["text", "image"], output: ["text"] } };
+      modelsObj[m] = { name: m, capabilities: { tools: true, input: ["text", "image"], output: ["text"] } };
     });
 
     return [{
       filename: "~/.config/opencode/opencode.json",
       content: JSON.stringify({
-        provider: {
+        providers: {
           "9router": {
-            npm: "@ai-sdk/openai-compatible",
-            options: { baseURL: getEffectiveBaseUrl(), apiKey: keyToUse },
+            package: "aisdk:@ai-sdk/openai-compatible",
+            settings: { baseURL: getEffectiveBaseUrl(), apiKey: keyToUse },
             models: modelsObj,
           },
         },
         model: `9router/${activeModelToShow}`,
-        agent: {
+        agents: {
           explorer: {
             description: "Fast explorer subagent for codebase exploration",
             mode: "subagent",
-            model: `9router/${effectiveSubagentModel}`
+            model: { providerID: "9router", model: effectiveSubagentModel }
           }
         }
       }, null, 2),
@@ -276,10 +279,10 @@ export default function OpenCodeToolCard({ tool, isExpanded, onToggle, baseUrl, 
                   <h4 className="font-medium mb-3">Installation Guide</h4>
                   <div className="space-y-3 text-sm">
                     <div>
-                      <p className="text-text-muted mb-1">macOS / Linux:</p>
-                      <code className="block px-3 py-2 bg-black/5 dark:bg-white/5 rounded font-mono text-xs">npm install -g opencode-ai</code>
+                      <p className="text-text-muted mb-1">macOS / Linux / Windows:</p>
+                      <code className="block px-3 py-2 bg-black/5 dark:bg-white/5 rounded font-mono text-xs">npm install -g @opencode/cli</code>
                     </div>
-                    <p className="text-text-muted">After installation, run <code className="px-1 bg-black/5 dark:bg-white/5 rounded">opencode</code> to verify.</p>
+                    <p className="text-text-muted">After installation, run <code className="px-1 bg-black/5 dark:bg-white/5 rounded">opencode --version</code> to verify.</p>
                   </div>
                 </div>
               )}
@@ -307,12 +310,12 @@ export default function OpenCodeToolCard({ tool, isExpanded, onToggle, baseUrl, 
                 </div>
 
                 {/* Current configured */}
-                {status?.config?.provider?.["9router"]?.options?.baseURL && (
+                {getConfigBaseURL(status?.config) && (
                   <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-[8rem_auto_1fr_auto] sm:items-center sm:gap-2">
                     <span className="text-xs font-semibold text-text-main sm:text-right sm:text-sm">Current</span>
                     <span className="material-symbols-outlined hidden text-text-muted text-[14px] sm:inline">arrow_forward</span>
                     <span className="min-w-0 truncate rounded bg-surface/40 px-2 py-2 text-xs text-text-muted sm:py-1.5">
-                      {status.config.provider["9router"].options.baseURL}
+                      {getConfigBaseURL(status.config)}
                     </span>
                   </div>
                 )}
