@@ -12,7 +12,26 @@ const execAsync = promisify(exec);
 const PROVIDER_ID = "9router";
 const API_KEY_ENV = "OPENAI_API_KEY";
 
-const getHermesDir = () => path.join(os.homedir(), ".hermes");
+// Hermes home resolution mirrors hermes_constants.get_hermes_home():
+// context override → HERMES_HOME env var → platform default
+//   (Windows: %LOCALAPPDATA%\hermes, Linux/macOS: ~/.hermes).
+// Writing anywhere else produces a config file Hermes never reads — the original
+// "settings applied but nothing changed" bug.
+const getHermesDir = () => {
+  const envHome = process.env.HERMES_HOME;
+  if (envHome && envHome.trim()) return path.resolve(envHome.trim());
+  if (os.platform() === "win32") {
+    const localAppData = process.env.LOCALAPPDATA;
+    if (localAppData && localAppData.trim()) return path.join(localAppData.trim(), "hermes");
+    return path.join(os.homedir(), "AppData", "Local", "hermes");
+  }
+  return path.join(os.homedir(), ".hermes");
+};
+
+// Legacy location the first dashboard integration used on Windows (wrong home). Kept as a
+// read-once migration source when the real Hermes home has no config yet; never a write target.
+const getLegacyHermesDir = () => path.join(os.homedir(), ".hermes");
+
 const getHermesConfigPath = () => path.join(getHermesDir(), "config.yaml");
 const getHermesEnvPath = () => path.join(getHermesDir(), ".env");
 const getBackupPath = () => path.join(getHermesDir(), "config.yaml.9router-bak");
@@ -26,20 +45,44 @@ const PROVIDERS_BLOCK_RE = /^providers:[ \t]*\r?\n((?:[ \t]+.*\r?\n?|[ \t]*\r?\n
 // Match a 2-space-indented provider entry inside a "providers:" block (children 4+ spaces)
 const PROVIDER_ENTRY_RE = /^[ \t]{2}([^\s:#][^:]*?):[ \t]*\r?\n((?:[ \t]{4,}.*\r?\n?|[ \t]*\r?\n)*)/gm;
 
-// Build the model block in Hermes' native format. provider "9router" resolves the named
-// providers.9router entry (key_env -> OPENAI_API_KEY) at runtime.
-const buildModelBlock = (model, baseUrl) =>
-  `model:\n  default: "${model}"\n  provider: "${PROVIDER_ID}"\n  base_url: "${baseUrl}"\n  api_key: \${${API_KEY_ENV}}\n`;
+// Model block in Hermes' native format. `provider: 9router` resolves the named
+// providers.9router entry (key_env -> OPENAI_API_KEY) at runtime. api_mode is preserved
+// when the user's config already carries it (hermes writes api_mode into the model block).
+const buildModelBlock = (model, baseUrl, existingModel) => {
+  const apiMode = existingModel?.api_mode ? `  api_mode: ${existingModel.api_mode}\n` : "";
+  return (
+    `model:\n` +
+    `  default: "${model}"\n` +
+    `  provider: "${PROVIDER_ID}"\n` +
+    `  base_url: "${baseUrl}"\n` +
+    `  api_key: \${${API_KEY_ENV}}\n` +
+    apiMode
+  );
+};
 
-// Build the providers.9router entry (hermes v12 providers shape; `api` is the canonical URL key).
-const buildProviderEntryYaml = (baseUrl, activeModel, models) =>
-  `  ${PROVIDER_ID}:\n` +
-  `    name: "${PROVIDER_ID}"\n` +
-  `    api: "${baseUrl}"\n` +
-  `    key_env: ${API_KEY_ENV}\n` +
-  `    default_model: "${activeModel}"\n` +
-  `    models:\n` +
-  models.map((m) => `      - "${m}"\n`).join("");
+// Write the providers.9router entry the way Hermes itself persists it (base_url + models dict),
+// so a Hermes update / config migration never surprises us. `discover_models` is intentionally
+// NOT written: auto-discovery would repopulate the models dict with every catalog model,
+// drowning the models the dashboard manages. per-entry api_mode / transport are preserved
+// (entries may use "transport" as the v12 spelling).
+const buildProviderEntryYaml = (baseUrl, activeModel, models, existingEntry = null) => {
+  const preserved = existingEntry || {};
+  const extras = ["api_mode", "transport"]
+    .filter((k) => preserved[k])
+    .map((k) => `    ${k}: ${preserved[k]}\n`)
+    .join("");
+  return (
+    `  ${PROVIDER_ID}:\n` +
+    `    name: ${PROVIDER_ID}\n` +
+    `    base_url: "${baseUrl}"\n` +
+    `    key_env: ${API_KEY_ENV}\n` +
+    `    model: "${activeModel}"\n` +
+    `    default_model: "${activeModel}"\n` +
+    extras +
+    `    models:\n` +
+    models.map((m) => `      ${m}: {}\n`).join("")
+  );
+};
 
 // Parse current model block back to fields (best-effort, simple key:value)
 const parseModelBlock = (yaml) => {
@@ -55,11 +98,33 @@ const parseModelBlock = (yaml) => {
     provider: get("provider"),
     base_url: get("base_url"),
     api_key: get("api_key"),
+    api_mode: get("api_mode"),
   };
 };
 
-// Parse providers.9router entry back to fields: name, api/base_url, key_env,
-// default_model, models (list of ids).
+// Extract a model id from a line inside a `models:` block. Handles the shapes Hermes writes
+// (`id: {}` dict) and the earlier dashboard writes (`- "id"` list), including ids that
+// themselves contain a colon (e.g. ollama/gpt-oss:120b):
+//   - "cl/deepseek/deepseek-v4-flash"
+//   GratisanCok: {}
+//   ollama/gpt-oss:120b: {}
+const parseModelsItem = (line) => {
+  const trimmed = line.trim();
+  if (!trimmed) return null;
+  const dashed = /^[-*][ \t]*/.test(trimmed);
+  const rest = dashed ? trimmed.replace(/^[-*][ \t]*/, "").trim() : trimmed;
+  // Quoted plain id (`- "id"`) — unquote wholesale; colons inside belong to the id.
+  const quoted = rest.match(/^(["'])(.*)\1$/);
+  if (quoted) return quoted[2].trim() || null;
+  // `- id:` / `- id: {}` / `id:` / `id: {}` — split at the LAST colon whose value is `{}` or empty.
+  const pair = rest.match(/^(.+?)[ \t]*:[ \t]*(\{\}|)[ \t]*$/);
+  if (pair) return pair[1].trim() || null;
+  // Bare dashed id without a colon (`- GratisanCok`)
+  return dashed ? (rest || null) : null;
+};
+
+// Parse providers.9router entry back to fields: name, base_url/api/url, key_env, model,
+// default_model, api_mode/transport, models (array of ids).
 const parseProviderEntry = (yaml) => {
   const block = yaml.match(PROVIDERS_BLOCK_RE);
   if (!block) return null;
@@ -75,20 +140,19 @@ const parseProviderEntry = (yaml) => {
 
   const result = {};
   const models = [];
-  let inModels = false;
   for (const line of entryBody.split(/\r?\n/)) {
     if (!line.trim()) continue;
-    if (inModels && /^[ \t]{6,}/.test(line)) {
-      const item = line.match(/^[ \t]*-[ \t]*["']?([^"'\r\n]+?)["']?[ \t]*$/);
-      if (item) models.push(item[1].trim());
+    const indent = line.match(/^[ \t]*/)[0].length;
+    if (indent >= 6) {
+      const id = parseModelsItem(line);
+      if (id) models.push(id);
       continue;
     }
     const m = line.match(/^[ \t]{4}([^:\s][^:]*?):[ \t]*["']?([^"'\r\n]*?)["']?[ \t]*$/);
     if (!m) continue;
     const key = m[1].trim();
     const value = m[2].trim();
-    inModels = key === "models";
-    if (!inModels) result[key === "api" ? "api" : key] = value;
+    if (key !== "models") result[key] = value;
   }
   if (models.length > 0) result.models = models;
   return result;
@@ -194,7 +258,7 @@ const has9RouterConfig = (modelCfg, providerCfg) => {
 };
 
 const providerUrl = (providerCfg, modelCfg) =>
-  providerCfg?.api || providerCfg?.base_url || modelCfg?.base_url || null;
+  providerCfg?.api || providerCfg?.url || providerCfg?.base_url || modelCfg?.base_url || null;
 
 export async function GET() {
   try {
@@ -203,18 +267,32 @@ export async function GET() {
       return NextResponse.json({ installed: false, settings: null, message: "Hermes Agent is not installed" });
     }
     const yaml = await readConfigYaml();
-    const model = parseModelBlock(yaml);
-    const provider = parseProviderEntry(yaml);
-    const models = provider?.models?.length
-      ? provider.models
-      : (model?.default ? [model.default] : []);
+    const dir = getHermesDir();
+    const legacyDir = getLegacyHermesDir();
+    let legacyDetected = false;
+    let sourceYaml = yaml;
+    // Real Hermes home is empty (e.g. first run after the home-resolution fix): fall back to
+    // the legacy ~/.hermes config as a read-once migration source so nothing is lost.
+    if (!yaml.trim() && dir !== legacyDir) {
+      try {
+        const legacyConfig = await fs.readFile(path.join(legacyDir, "config.yaml"), "utf-8");
+        if (legacyConfig.trim()) {
+          sourceYaml = legacyConfig;
+          legacyDetected = true;
+        }
+      } catch { /* no legacy config */ }
+    }
+    const model = parseModelBlock(sourceYaml);
+    const provider = parseProviderEntry(sourceYaml);
+    const models = provider?.models?.length ? provider.models : (model?.default ? [model.default] : []);
     const activeModel = provider?.default_model || model?.default || models[0] || "";
     const baseURL = providerUrl(provider, model);
     return NextResponse.json({
       installed: true,
       settings: { model, provider },
-      has9Router: !!(has9RouterConfig(model, provider) && (providerUrl(provider, model) || model?.base_url)),
+      has9Router: !!(has9RouterConfig(model, provider) && baseURL),
       configPath: getHermesConfigPath(),
+      legacyDetected,
       hermes: {
         models,
         activeModel,
@@ -230,7 +308,8 @@ export async function GET() {
 }
 
 // POST - Apply 9Router as the Hermes inference provider (multi-model support).
-// Writes the native hermes config: model block (provider "9router") + providers.9router entry.
+// Writes only the two managed blocks (model + providers.9router) into the user's real
+// Hermes config; everything else in the file is left untouched.
 export async function POST(request) {
   try {
     const { baseUrl, apiKey, model, models, activeModel } = await request.json();
@@ -251,8 +330,11 @@ export async function POST(request) {
     const finalActive = activeModel && modelsArray.includes(activeModel) ? activeModel : modelsArray[0];
 
     const existingYaml = await readConfigYaml();
-    let newYaml = upsertModelBlock(existingYaml, buildModelBlock(finalActive, normalizedBaseUrl));
-    newYaml = upsertProviderEntry(newYaml, buildProviderEntryYaml(normalizedBaseUrl, finalActive, modelsArray));
+    const existingModel = parseModelBlock(existingYaml);
+    const existingProvider = parseProviderEntry(existingYaml);
+
+    let newYaml = upsertModelBlock(existingYaml, buildModelBlock(finalActive, normalizedBaseUrl, existingModel));
+    newYaml = upsertProviderEntry(newYaml, buildProviderEntryYaml(normalizedBaseUrl, finalActive, modelsArray, existingProvider));
     await fs.writeFile(getHermesConfigPath(), newYaml);
 
     // Update .env — upsert OPENAI_API_KEY only when caller provides one
@@ -311,8 +393,8 @@ export async function DELETE(request) {
       const url = providerUrl(provider, model) || "";
       const finalActive = model?.default === modelToRemove ? remaining[0] : (model?.default || remaining[0]);
       let newYaml = removeProviderEntry(yaml);
-      newYaml = upsertProviderEntry(newYaml, buildProviderEntryYaml(url, finalActive, remaining));
-      newYaml = upsertModelBlock(newYaml, buildModelBlock(finalActive, url));
+      newYaml = upsertProviderEntry(newYaml, buildProviderEntryYaml(url, finalActive, remaining, provider));
+      newYaml = upsertModelBlock(newYaml, buildModelBlock(finalActive, url, model));
       await fs.writeFile(configPath, newYaml);
       return NextResponse.json({ success: true, message: `Model "${modelToRemove}" removed` });
     }

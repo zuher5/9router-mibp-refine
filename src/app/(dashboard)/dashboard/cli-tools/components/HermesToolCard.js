@@ -320,6 +320,15 @@ export default function HermesToolCard({
           {!checking && status?.installed && (
             <>
               <div className="flex flex-col gap-2">
+                {/* Legacy config found at ~/.hermes — one-click migration hint */}
+                {status.legacyDetected && (
+                  <div className="flex items-start gap-2 px-2 py-1.5 rounded text-xs bg-amber-500/10 text-amber-600 dark:text-amber-400">
+                    <span className="material-symbols-outlined text-[14px]">info</span>
+                    <span>
+                      Legacy config found at ~/.hermes — click <b>Apply</b> to migrate it to the real Hermes home.
+                    </span>
+                  </div>
+                )}
                 {/* Select Endpoint */}
                 <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-[8rem_auto_1fr] sm:items-center sm:gap-2">
                   <span className="text-xs font-semibold text-text-main sm:text-right sm:text-sm">Select Endpoint</span>
@@ -344,6 +353,13 @@ export default function HermesToolCard({
                     <span className="min-w-0 truncate rounded bg-surface/40 px-2 py-2 text-xs text-text-muted sm:py-1.5">
                       {currentBaseUrl}
                     </span>
+                  </div>
+                )}
+
+                {/* Actual config file being read/written */}
+                {status?.configPath && (
+                  <div className="text-[11px] text-text-muted">
+                    Config file: {status.configPath}
                   </div>
                 )}
 
