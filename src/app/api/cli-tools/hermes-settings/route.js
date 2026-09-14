@@ -61,10 +61,12 @@ const buildModelBlock = (model, baseUrl, existingModel) => {
 };
 
 // Write the providers.9router entry the way Hermes itself persists it (base_url + models dict),
-// so a Hermes update / config migration never surprises us. `discover_models` is intentionally
-// NOT written: auto-discovery would repopulate the models dict with every catalog model,
-// drowning the models the dashboard manages. per-entry api_mode / transport are preserved
-// (entries may use "transport" as the v12 spelling).
+// so a Hermes update / config migration never surprises us. `discover_models: false` is written
+// explicitly: Hermes defaults discovery to true and would otherwise repopulate the models dict
+// with the gateway's full catalog every start, drowning the models the dashboard manages
+// (verified: model_setup_flows_custom.py / model_switch.py honor discover_models=false and use
+// the configured models verbatim). per-entry api_mode / transport are preserved (entries may
+// use "transport" as the v12 spelling).
 const buildProviderEntryYaml = (baseUrl, activeModel, models, existingEntry = null) => {
   const preserved = existingEntry || {};
   const extras = ["api_mode", "transport"]
@@ -78,6 +80,7 @@ const buildProviderEntryYaml = (baseUrl, activeModel, models, existingEntry = nu
     `    key_env: ${API_KEY_ENV}\n` +
     `    model: "${activeModel}"\n` +
     `    default_model: "${activeModel}"\n` +
+    `    discover_models: false\n` +
     extras +
     `    models:\n` +
     models.map((m) => `      ${m}: {}\n`).join("")
