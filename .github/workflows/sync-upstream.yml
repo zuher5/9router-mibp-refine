@@ -95,8 +95,36 @@ jobs:
             exit 1
           fi
 
+      - name: Ringkasan di halaman run (selalu)
+        if: always()
+        run: |
+          {
+            echo "### Sync upstream -> $TARGET"
+            echo ""
+            echo "- sumber : \`$SOURCE\`"
+            echo "- target : \`$TARGET\`"
+            echo "- hasil  : ${{ job.status }}"
+            echo ""
+            if [ "${{ job.status }}" = "failure" ]; then
+              echo "**Konflik merge.** Tidak ada yang di-push — \`$TARGET\` tidak disentuh sama sekali."
+              echo ""
+              echo "Resolve manual:"
+              echo ""
+              echo '```powershell'
+              echo "cd C:\\Users\\Zuher\\projects\\9router-mibp-refine"
+              echo "git fetch origin --prune"
+              echo "git merge origin/upstream-mirror"
+              echo "# selesaikan konflik, lalu:"
+              echo "git add -A && git commit && git push origin master"
+              echo '```'
+            else
+              echo "Tidak ada masalah."
+            fi
+          } >> "$GITHUB_STEP_SUMMARY"
+
       - name: Buat / update issue kalau konflik
         if: failure()
+        continue-on-error: true
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           BODY: |
@@ -119,7 +147,7 @@ jobs:
         run: |
           set -uo pipefail
           gh label create upstream-sync --color FBCA04 --description "Konflik sync dari base fork" 2>/dev/null || true
-          N=$(gh issue list --label upstream-sync --state open --json number --jq '.[0].number // empty')
+          N=$(gh issue list --label upstream-sync --state open --json number --jq '.[0].number // empty' 2>/dev/null || echo "")
           if [ -n "$N" ]; then
             gh issue comment "$N" --body "$BODY"
           else
