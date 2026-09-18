@@ -3,7 +3,7 @@ name: Sync upstream
 # Menjaga fork ini tetap mengikuti base fork: mhiqrambg/9router-mibp-version
 #
 #   Job "mirror" : branch `upstream-mirror` = SALINAN PERSIS upstream.
-#                  Selalu fast-forward, jadi TIDAK MUNGKIN konflik.
+#                  Selalu dipaksa sama dengan upstream, jadi TIDAK MUNGKIN konflik.
 #                  Ini jaminan "update upstream selalu masuk ke fork".
 #   Job "merge"  : merge `upstream-mirror` -> `master` (branch kerja kamu).
 #                  Kalau konflik: TIDAK force-push, job gagal, dibuat issue untuk resolve manual.
@@ -16,6 +16,15 @@ on:
   schedule:
     - cron: "17 3 * * *" # harian 03:17 UTC = 10:17 WIB
   workflow_dispatch:
+    inputs:
+      source:
+        description: "Branch sumber (isi upstream-mirror)"
+        required: false
+        default: upstream-mirror
+      target:
+        description: "Branch tujuan merge (isi master)"
+        required: false
+        default: master
 
 permissions:
   contents: write
@@ -38,43 +47,53 @@ jobs:
         run: |
           set -euo pipefail
           git remote add upstream https://github.com/mhiqrambg/9router-mibp-version.git
-          git fetch upstream master --tags
+          git fetch upstream master
           UP=$(git rev-parse upstream/master)
           echo "upstream/master = $UP"
-          git push origin "$UP:refs/heads/upstream-mirror"
+          # upstream-mirror adalah branch milik robot ini, jadi paksa sama persis
+          # dengan upstream. Ini yang membuat job ini tidak mungkin konflik/gagal.
+          git push --force origin "$UP:refs/heads/upstream-mirror"
           echo "upstream-mirror sekarang di $UP"
 
   merge:
     needs: mirror
     if: github.repository == 'zuher5/9router-mibp-refine'
     runs-on: ubuntu-latest
+    env:
+      SOURCE: ${{ inputs.source || 'upstream-mirror' }}
+      TARGET: ${{ inputs.target || 'master' }}
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           fetch-depth: 0
-          ref: master
 
-      - name: Merge upstream-mirror -> master
+      - name: Merge ${{ inputs.source || 'upstream-mirror' }} -> ${{ inputs.target || 'master' }}
         run: |
           set -euo pipefail
+          echo "source=$SOURCE  target=$TARGET"
           git config user.name  "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git fetch origin master upstream-mirror
+          git fetch origin "+refs/heads/$SOURCE:refs/remotes/origin/$SOURCE" "+refs/heads/$TARGET:refs/remotes/origin/$TARGET"
+          git checkout -B "$TARGET" "origin/$TARGET"
 
-          if git merge-base --is-ancestor origin/upstream-mirror HEAD; then
-            echo "master sudah memuat seluruh upstream. Tidak ada yang perlu dilakukan."
+          if git merge-base --is-ancestor "origin/$SOURCE" HEAD; then
+            echo "SUKSES: $TARGET sudah memuat seluruh $SOURCE. Tidak ada yang perlu dilakukan."
             exit 0
           fi
 
-          echo "=== commit upstream yang akan masuk ==="
-          git log --oneline --no-decorate HEAD..origin/upstream-mirror | head -50
+          echo "=== commit yang akan masuk ==="
+          git log --oneline --no-decorate "HEAD..origin/$SOURCE" | head -50
           echo "=== file yang berubah ==="
-          git diff --stat HEAD origin/upstream-mirror | tail -40
+          git diff --stat "HEAD" "origin/$SOURCE" | tail -40
 
-          git merge --no-ff origin/upstream-mirror \
-            -m "chore(sync): merge upstream $(git rev-parse --short origin/upstream-mirror)"
-          git push origin HEAD:master
-          echo "master berhasil di-merge dan di-push."
+          if git merge --no-ff "origin/$SOURCE" -m "chore(sync): merge upstream $(git rev-parse --short "origin/$SOURCE")"; then
+            git push origin "HEAD:refs/heads/$TARGET"
+            echo "SUKSES: $TARGET di-merge dan di-push."
+          else
+            git merge --abort || true
+            echo "::error::$TARGET TIDAK diubah: konflik merge dengan $SOURCE."
+            exit 1
+          fi
 
       - name: Buat / update issue kalau konflik
         if: failure()
@@ -99,7 +118,6 @@ jobs:
             **Actions -> Sync upstream -> Run workflow**.
         run: |
           set -uo pipefail
-          git merge --abort || true
           gh label create upstream-sync --color FBCA04 --description "Konflik sync dari base fork" 2>/dev/null || true
           N=$(gh issue list --label upstream-sync --state open --json number --jq '.[0].number // empty')
           if [ -n "$N" ]; then
