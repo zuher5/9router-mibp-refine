@@ -1,9 +1,18 @@
-name: Build and Push 9Router Docker Image
+name: Build and Push Docker Image
 
 on:
   push:
-    branches: [ master, main ]
+    tags:
+      - "v*"
   workflow_dispatch:
+
+concurrency:
+  group: docker-build-${{ github.ref }}
+  cancel-in-progress: true
+
+env:
+  GHCR_IMAGE: ghcr.io/${{ github.repository }}
+  DOCKERHUB_IMAGE: mhiqrambhrng/9router-mibp-version
 
 jobs:
   build-and-push:
@@ -13,43 +22,43 @@ jobs:
       packages: write
 
     steps:
-      - name: Checkout repository
-        uses: actions/checkout@v4
+      - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
 
-      - name: Set up Docker Buildx
-        uses: docker/setup-buildx-action@v3
+      - uses: docker/setup-buildx-action@f7ce87c1d6bead3e36075b2ce75da1f6cc28aaca # v3.9.0
 
-      - name: Log in to GitHub Container Registry
-        uses: docker/login-action@v3
+      - name: Log in to GHCR
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
         with:
           registry: ghcr.io
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Log in to Docker Hub (if secret provided)
-        if: env.DOCKERHUB_USERNAME != '' && env.DOCKERHUB_TOKEN != ''
-        uses: docker/login-action@v3
-        env:
-          DOCKERHUB_USERNAME: ${{ secrets.DOCKERHUB_USERNAME }}
-          DOCKERHUB_TOKEN: ${{ secrets.DOCKERHUB_TOKEN }}
+      - name: Log in to Docker Hub
+        uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Compute tags
-        id: tags
-        run: |
-          TAGS="ghcr.io/${{ github.repository_owner }}/9router:latest"
-          if [ -n "${{ secrets.DOCKERHUB_USERNAME }}" ] && [ -n "${{ secrets.DOCKERHUB_TOKEN }}" ]; then
-            TAGS="$TAGS,${{ secrets.DOCKERHUB_USERNAME }}/9router:latest"
-          fi
-          echo "tags=$TAGS" >> $GITHUB_OUTPUT
+      - name: Extract metadata
+        id: meta
+        uses: docker/metadata-action@318604b99e75e41977312d83839a89be02ca4893 # v5.9.0
+        with:
+          images: |
+            ${{ env.GHCR_IMAGE }}
+            ${{ env.DOCKERHUB_IMAGE }}
+          tags: |
+            type=semver,pattern={{version}}
+            type=raw,value=latest,enable={{is_default_branch}}
 
-      - name: Build and push Docker image
-        uses: docker/build-push-action@v5
+      - name: Build and push
+        uses: docker/build-push-action@4f58ea79222b3b9dc2c8bbdd6debcef730109a75 # v6.9.0
         with:
           context: .
-          file: ./Dockerfile
-          platforms: linux/amd64
           push: true
-          tags: ${{ steps.tags.outputs.tags }}
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          cache-from: type=registry,ref=${{ env.GHCR_IMAGE }}:buildcache
+          cache-to: type=registry,ref=${{ env.GHCR_IMAGE }}:buildcache,mode=max
+          platforms: linux/amd64,linux/arm64
+          provenance: false
+          sbom: false
