@@ -2,6 +2,14 @@
 
 import Link from "next/link";
 
+function setDesktopPreference() {
+  try {
+    document.cookie = "pref_desktop=1; path=/; max-age=31536000; SameSite=Lax";
+  } catch {
+    /* ignore */
+  }
+}
+
 export default function MobileSettingsPage() {
   return (
     <div className="flex flex-col gap-4">
@@ -18,6 +26,7 @@ export default function MobileSettingsPage() {
 
         <Link
           href="/dashboard/usage"
+          onClick={setDesktopPreference}
           className="p-3.5 flex items-center justify-between text-text hover:bg-bg-subtle transition-colors"
         >
           <div className="flex items-center gap-2.5">

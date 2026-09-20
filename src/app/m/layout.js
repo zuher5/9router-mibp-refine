@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import PropTypes from "prop-types";
+import "./mobile.css";
 
 const NAV_ITEMS = [
   { href: "/m/usage", label: "Usage", icon: "monitoring" },
@@ -11,8 +12,16 @@ const NAV_ITEMS = [
   { href: "/m/settings", label: "Settings", icon: "settings" },
 ];
 
+function setDesktopPreference() {
+  try {
+    document.cookie = "pref_desktop=1; path=/; max-age=31536000; SameSite=Lax";
+  } catch {
+    /* ignore */
+  }
+}
+
 export default function MobileLayout({ children }) {
-  const pathname = usePathname();
+  const pathname = usePathname() || "";
 
   return (
     <div className="flex flex-col min-h-screen w-full bg-bg text-text select-none antialiased">
@@ -26,15 +35,15 @@ export default function MobileLayout({ children }) {
           </span>
         </div>
 
-        {/* Link cepat ke desktop version */}
         <div className="flex items-center gap-2">
           <Link
             href="/dashboard/usage"
-            className="flex items-center gap-1 text-xs text-text-muted hover:text-text px-2 py-1 rounded-md border border-border/60 bg-bg-subtle"
+            onClick={setDesktopPreference}
+            className="m-touch-target flex items-center gap-1 text-xs text-text-muted hover:text-text px-2 py-1 rounded-md border border-border/60 bg-bg-subtle"
             title="Desktop Mode"
           >
             <span className="material-symbols-outlined text-[15px]">desktop_windows</span>
-            <span className="hidden xs:inline">Desktop</span>
+            <span>Desktop</span>
           </Link>
         </div>
       </header>
@@ -44,15 +53,16 @@ export default function MobileLayout({ children }) {
         {children}
       </main>
 
-      {/* Mobile Bottom Navigation Bar (Jempol friendly) */}
-      <nav className="fixed bottom-0 inset-x-0 z-50 flex items-center justify-around h-16 bg-bg/95 backdrop-blur-lg border-t border-border shadow-lg max-w-lg mx-auto">
+      {/* Mobile Bottom Navigation Bar (thumb friendly, 48px+ targets) */}
+      <nav className="m-bottom-nav fixed bottom-0 inset-x-0 z-50 flex items-stretch justify-around h-16 bg-bg/95 backdrop-blur-lg border-t border-border shadow-lg max-w-lg mx-auto">
         {NAV_ITEMS.map((item) => {
-          const isActive = pathname.startsWith(item.href);
+          const isActive = pathname === item.href || pathname.startsWith(`${item.href}/`);
           return (
             <Link
               key={item.href}
               href={item.href}
-              className={`flex flex-col items-center justify-center flex-1 h-full gap-1 transition-colors ${
+              aria-current={isActive ? "page" : undefined}
+              className={`m-touch-target flex flex-col items-center justify-center flex-1 h-full gap-1 transition-colors ${
                 isActive ? "text-primary font-semibold" : "text-text-muted hover:text-text"
               }`}
             >

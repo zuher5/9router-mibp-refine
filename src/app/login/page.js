@@ -26,6 +26,19 @@ export default function LoginPage() {
     return () => clearInterval(id);
   }, [retryAfter]);
 
+  function resolvePostLoginTarget() {
+    try {
+      const params = new URLSearchParams(window.location.search);
+      const next = params.get("next");
+      if (next && next.startsWith("/") && !next.startsWith("//")) return next;
+    } catch {
+      /* ignore */
+    }
+    const ua = navigator.userAgent || "";
+    if (/android|iphone|ipad|ipod|mobile/i.test(ua)) return "/m/usage";
+    return "/dashboard";
+  }
+
   useEffect(() => {
     async function checkAuth() {
       const controller = new AbortController();
@@ -41,7 +54,7 @@ export default function LoginPage() {
         if (res.ok) {
           const data = await res.json();
           if (data.authenticated === true || data.requireLogin === false) {
-            window.location.assign("/dashboard");
+            window.location.assign(resolvePostLoginTarget());
             return;
           }
           setHasPassword(!!data.hasPassword);
@@ -82,7 +95,7 @@ export default function LoginPage() {
           setMustChange(true);
           return;
         }
-        window.location.assign("/dashboard");
+        window.location.assign(resolvePostLoginTarget());
       } else {
         const data = await res.json();
         setError(data.error || "Invalid password");
@@ -108,7 +121,7 @@ export default function LoginPage() {
         body: JSON.stringify({ currentPassword: password, newPassword }),
       });
       if (res.ok) {
-        window.location.assign("/dashboard");
+        window.location.assign(resolvePostLoginTarget());
       } else {
         const data = await res.json();
         setError(data.error || "Failed to set password");

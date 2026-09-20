@@ -191,6 +191,60 @@ function isPublicApi(pathname) {
   return PUBLIC_API_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`));
 }
 
+function isMobileUserAgent(request) {
+  const ua = request.headers.get("user-agent") || "";
+  return /android|iphone|ipad|ipod|mobile/i.test(ua);
+}
+
+function prefersDesktop(request) {
+  return request.cookies.get("pref_desktop")?.value === "1";
+}
+
+function loginRedirect(request, nextPath) {
+  const url = new URL("/login", request.url);
+  if (nextPath) url.searchParams.set("next", nextPath);
+  return NextResponse.redirect(url);
+}
+
+async function guardDashboardRoute(request, pathname) {
+  let requireLogin = true;
+  let tunnelDashboardAccess = true;
+
+  try {
+    const settings = await loadSettings();
+    if (settings) {
+      requireLogin = settings.requireLogin !== false;
+      tunnelDashboardAccess = settings.tunnelDashboardAccess === true;
+
+      // Block tunnel/tailscale access if disabled (redirect to login)
+      if (!tunnelDashboardAccess) {
+        const host = (request.headers.get("host") || "").split(":")[0].toLowerCase();
+        const tunnelHost = settings.tunnelUrl ? new URL(settings.tunnelUrl).hostname.toLowerCase() : "";
+        const tailscaleHost = settings.tailscaleUrl ? new URL(settings.tailscaleUrl).hostname.toLowerCase() : "";
+        if ((tunnelHost && host === tunnelHost) || (tailscaleHost && host === tailscaleHost)) {
+          return NextResponse.redirect(new URL("/login", request.url));
+        }
+      }
+    }
+  } catch {
+    // On error, keep defaults (require login, block tunnel)
+  }
+
+  // If login not required, allow through
+  if (!requireLogin) return NextResponse.next();
+
+  // Verify JWT token
+  const token = request.cookies.get("auth_token")?.value;
+  if (token) {
+    if (await verifyDashboardAuthToken(token)) {
+      return NextResponse.next();
+    }
+    return loginRedirect(request, pathname);
+  }
+
+  return loginRedirect(request, pathname);
+}
+
 export const __test__ = {
   isLocalRequest,
   isPublicLlmApi,
@@ -229,49 +283,26 @@ export async function proxy(request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  // Protect all dashboard routes
-  if (pathname.startsWith("/dashboard")) {
-    let requireLogin = true;
-    let tunnelDashboardAccess = true;
-
-    try {
-      const settings = await loadSettings();
-      if (settings) {
-        requireLogin = settings.requireLogin !== false;
-        tunnelDashboardAccess = settings.tunnelDashboardAccess === true;
-
-        // Block tunnel/tailscale access if disabled (redirect to login)
-        if (!tunnelDashboardAccess) {
-          const host = (request.headers.get("host") || "").split(":")[0].toLowerCase();
-          const tunnelHost = settings.tunnelUrl ? new URL(settings.tunnelUrl).hostname.toLowerCase() : "";
-          const tailscaleHost = settings.tailscaleUrl ? new URL(settings.tailscaleUrl).hostname.toLowerCase() : "";
-          if ((tunnelHost && host === tunnelHost) || (tailscaleHost && host === tailscaleHost)) {
-            return NextResponse.redirect(new URL("/login", request.url));
-          }
-        }
-      }
-    } catch {
-      // On error, keep defaults (require login, block tunnel)
+  // Protect all dashboard + mobile routes (same policy, no auth gap on /m)
+  if (pathname.startsWith("/dashboard") || pathname === "/m" || pathname.startsWith("/m/")) {
+    // Mobile browsers default to the touch UI unless they opted into desktop.
+    if (
+      isMobileUserAgent(request) &&
+      !prefersDesktop(request) &&
+      (pathname === "/dashboard" ||
+        pathname === "/dashboard/usage" ||
+        pathname.startsWith("/dashboard/usage/"))
+    ) {
+      return NextResponse.redirect(new URL("/m/usage", request.url));
     }
-
-    // If login not required, allow through
-    if (!requireLogin) return NextResponse.next();
-
-    // Verify JWT token
-    const token = request.cookies.get("auth_token")?.value;
-    if (token) {
-      if (await verifyDashboardAuthToken(token)) {
-        return NextResponse.next();
-      } else {
-        return NextResponse.redirect(new URL("/login", request.url));
-      }
-    }
-
-    return NextResponse.redirect(new URL("/login", request.url));
+    return guardDashboardRoute(request, pathname);
   }
 
   // Redirect / to /dashboard if logged in, or /dashboard if it's the root
   if (pathname === "/") {
+    if (isMobileUserAgent(request) && !prefersDesktop(request)) {
+      return NextResponse.redirect(new URL("/m/usage", request.url));
+    }
     return NextResponse.redirect(new URL("/dashboard", request.url));
   }
 

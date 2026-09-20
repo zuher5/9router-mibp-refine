@@ -2,31 +2,11 @@
 
 import { useState, useEffect, useCallback } from "react";
 import dynamic from "next/dynamic";
-import MobileProviderSheet from "../components/MobileProviderSheet";
+import MobileProviderSheet from "../_components/MobileProviderSheet";
+import { MOBILE_PERIODS, fmtTokens, timeAgo } from "../_lib/format";
+import { fetchUsageStats, fetchMobileProviders } from "../_lib/api";
 
-const MobileProviderTopology = dynamic(() => import("../components/MobileProviderTopology"), { ssr: false });
-
-const PERIODS = [
-  { value: "today", label: "Today" },
-  { value: "24h", label: "24h" },
-  { value: "7d", label: "7D" },
-  { value: "30d", label: "30D" },
-];
-
-function fmtTokens(n) {
-  if (!n) return "0";
-  if (n >= 1_000_000) return `${(n / 1_000_000).toFixed(1)}M`;
-  if (n >= 1_000) return `${(n / 1_000).toFixed(1)}K`;
-  return n.toString();
-}
-
-function timeAgo(timestamp) {
-  const diff = Math.floor((Date.now() - new Date(timestamp)) / 1000);
-  if (diff < 60) return `${diff}s ago`;
-  if (diff < 3600) return `${Math.floor(diff / 60)}m ago`;
-  if (diff < 86400) return `${Math.floor(diff / 3600)}h ago`;
-  return `${Math.floor(diff / 86400)}d ago`;
-}
+const MobileProviderTopology = dynamic(() => import("../_components/MobileProviderTopology"), { ssr: false });
 
 export default function MobileUsagePage() {
   const [period, setPeriod] = useState("today");
@@ -36,15 +16,15 @@ export default function MobileUsagePage() {
   const [isLive, setIsLive] = useState(false);
   const [selectedProvider, setSelectedProvider] = useState(null);
 
+  const [authError, setAuthError] = useState(false);
+
   const fetchStats = useCallback(async () => {
     try {
-      const res = await fetch(`/api/usage/stats?period=${period}`);
-      if (res.ok) {
-        const data = await res.json();
-        setStats(data);
-      }
-    } catch {
-      // Offline fallback
+      const data = await fetchUsageStats(period);
+      setStats(data);
+      setAuthError(false);
+    } catch (err) {
+      if (err && err.message && err.message.includes("401")) setAuthError(true);
     } finally {
       setLoading(false);
     }
@@ -52,40 +32,7 @@ export default function MobileUsagePage() {
 
   const fetchProviders = useCallback(async () => {
     try {
-      const [resConn, resNodes] = await Promise.all([
-        fetch("/api/providers"),
-        fetch("/api/provider-nodes"),
-      ]);
-      const connData = resConn.ok ? await resConn.json() : { connections: [] };
-      const nodesData = resNodes.ok ? await resNodes.json() : { nodes: [] };
-
-      const nodeMap = (nodesData.nodes || []).reduce((acc, n) => {
-        acc[n.id] = n.name;
-        return acc;
-      }, {});
-
-      const activeList = (connData.connections || [])
-        .filter((c) => c.isActive !== false)
-        .map((c) => ({
-          provider: c.provider,
-          name: c.name,
-          nodeName: nodeMap[c.provider],
-        }));
-
-      // Dedup
-      const seen = new Set();
-      const deduped = [];
-      for (const p of activeList) {
-        const key = p.provider?.toLowerCase();
-        if (key && !seen.has(key)) {
-          seen.add(key);
-          deduped.push(p);
-        }
-      }
-      if (!seen.has("opencode")) {
-        deduped.push({ provider: "opencode", name: "OpenCode Free" });
-      }
-      setProviders(deduped);
+      setProviders(await fetchMobileProviders());
     } catch {
       // Providers fetch fallback
     }
@@ -99,8 +46,9 @@ export default function MobileUsagePage() {
     fetchProviders();
   }, [fetchProviders]);
 
-  // Realtime stream SSE
+  // Realtime stream SSE (skip when unauthenticated to avoid console spam)
   useEffect(() => {
+    if (authError) return;
     const es = new EventSource("/api/usage/stream");
     es.onopen = () => setIsLive(true);
     es.onmessage = (e) => {
@@ -120,7 +68,7 @@ export default function MobileUsagePage() {
     es.onerror = () => setIsLive(false);
 
     return () => es.close();
-  }, []);
+  }, [authError]);
 
   const totalRequests = stats?.totalRequests || 0;
   const totalCost = stats?.totalCost || 0;
@@ -133,10 +81,20 @@ export default function MobileUsagePage() {
 
   return (
     <div className="flex flex-col gap-4">
+      {loading && !stats ? (
+        <div className="py-12 text-center text-xs text-text-muted rounded-xl border border-border bg-bg-subtle/50">
+          Loading usage…
+        </div>
+      ) : null}
+      {authError ? (
+        <div className="p-3.5 rounded-xl border border-warning/40 bg-warning/10 text-xs text-text">
+          Session required. <a className="font-bold text-primary underline" href="/login?next=/m/usage">Login</a> to load usage.
+        </div>
+      ) : null}
       {/* Top Controls: Period selector + Live pill */}
       <div className="flex items-center justify-between gap-2">
         <div className="flex items-center gap-1.5 p-1 rounded-xl bg-bg-subtle border border-border">
-          {PERIODS.map((p) => (
+          {MOBILE_PERIODS.map((p) => (
             <button
               key={p.value}
               type="button"
