@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState, useCallback, useRef } from "react";
+import { useMemo, useState, useCallback } from "react";
 import PropTypes from "prop-types";
 import {
   ReactFlow,
@@ -273,10 +273,8 @@ export default function MobileProviderTopology({
     [providers, activeSet, lastSet, errorSet, onSelectProvider]
   );
 
-  const rfInstance = useRef(null);
   const onInit = useCallback((instance) => {
-    rfInstance.current = instance;
-    setTimeout(() => instance.fitView({ padding: 0.12, duration: 250 }), 40);
+    instance.fitView({ padding: 0.12, duration: 250 });
   }, []);
 
   return (
@@ -289,29 +287,21 @@ export default function MobileProviderTopology({
         onInit={onInit}
         fitView
         fitViewOptions={{ padding: 0.12 }}
-        minZoom={0.5}
-        maxZoom={2.2}
-        panOnDrag={[2]} // Gestur: drag 2 jari agar scroll 1 jari tetap bebas scrolling halaman
-        zoomOnPinch={true}
+        nodesDraggable={false}
+        nodesConnectable={false}
+        elementsSelectable={false}
+        panOnDrag={false}
+        panOnScroll={false}
+        zoomOnScroll={false}
+        zoomOnPinch={false}
+        zoomOnDoubleClick={false}
         preventScrolling={false}
         proOptions={{ hideAttribution: true }}
       />
-      
+
       {/* Petunjuk interaksi mini */}
       <div className="absolute top-2 left-2 pointer-events-none px-2 py-0.5 rounded bg-bg/80 border border-border/50 text-[10px] text-text-muted">
         Tap node for details
-      </div>
-
-      {/* Tombol Fit Reset di pojok kiri bawah */}
-      <div className="absolute bottom-2 left-2 flex gap-1 z-10">
-        <button
-          type="button"
-          onClick={() => rfInstance.current?.fitView({ padding: 0.12, duration: 200 })}
-          className="m-touch-target w-11 h-11 flex items-center justify-center rounded-md bg-bg/90 border border-border text-text-muted hover:text-text shadow-sm"
-          title="Reset View"
-        >
-          <span className="material-symbols-outlined text-[16px] leading-none">center_focus_strong</span>
-        </button>
       </div>
     </div>
   );

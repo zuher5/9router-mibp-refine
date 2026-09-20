@@ -52,7 +52,7 @@ Sheet.propTypes = {
 
 // Segmented control: purpose is one-tap switching between 2-4 views
 // without leaving the page (periods, tabs, chart modes).
-export function SegControl({ options, value, onChange, label }) {
+export function SegControl({ options, value, onChange, label, disabled }) {
   return (
     <div role="group" aria-label={label} className="flex items-center gap-1 p-1 rounded-xl bg-bg-subtle border border-border overflow-x-auto">
       {options.map((o) => (
@@ -61,7 +61,8 @@ export function SegControl({ options, value, onChange, label }) {
           type="button"
           onClick={() => onChange(o.value)}
           aria-pressed={value === o.value}
-          className={`m-touch-target px-3 py-1 text-xs font-semibold rounded-lg transition-colors whitespace-nowrap ${
+          disabled={disabled}
+          className={`m-touch-target px-3 py-1 text-xs font-semibold rounded-lg transition-colors whitespace-nowrap disabled:opacity-50 ${
             value === o.value ? "bg-primary text-white shadow-sm" : "text-text-muted hover:text-text"
           }`}
         >
@@ -77,6 +78,7 @@ SegControl.propTypes = {
   value: PropTypes.string.isRequired,
   onChange: PropTypes.func.isRequired,
   label: PropTypes.string.isRequired,
+  disabled: PropTypes.bool,
 };
 
 export function SectionTitle({ children, right }) {
@@ -127,8 +129,9 @@ export function AuthNeeded() {
   );
 }
 
-// Toggle switch: purpose is enable/disable with a 48px hit area.
-// Real button element, keyboard operable, visible state.
+// Toggle switch: enable/disable with a 48px hit area.
+// The button is the hit area; the inner span is the actual pill so the
+// 48px minimum size never distorts the track into a circle.
 export function Toggle({ checked, onChange, label, disabled }) {
   return (
     <button
@@ -137,16 +140,24 @@ export function Toggle({ checked, onChange, label, disabled }) {
       aria-checked={!!checked}
       aria-label={label}
       disabled={disabled}
-      onClick={() => onChange?.(!checked)}
-      className={`m-touch-target relative inline-flex items-center w-12 h-7 rounded-full transition-colors shrink-0 ${
-        checked ? "bg-success" : "bg-border"
-      } ${disabled ? "opacity-50" : ""}`}
+      onClick={(e) => {
+        e.stopPropagation();
+        onChange?.(!checked);
+      }}
+      className="m-touch-target flex items-center justify-center shrink-0 disabled:opacity-50"
     >
       <span
-        className={`inline-block w-5 h-5 rounded-full bg-white shadow transition-transform ${
-          checked ? "translate-x-5" : "translate-x-1"
+        className={`relative block w-11 h-6 rounded-full transition-colors ${
+          checked ? "bg-success" : "bg-border"
         }`}
-      />
+      >
+        <span
+          aria-hidden="true"
+          className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform ${
+            checked ? "translate-x-5" : "translate-x-0"
+          }`}
+        />
+      </span>
     </button>
   );
 }

@@ -1,21 +1,12 @@
 "use client";
 
-import { useState, useEffect, useCallback, useMemo } from "react";
+import { useState, useEffect, useMemo } from "react";
 import dynamic from "next/dynamic";
 import PropTypes from "prop-types";
-import {
-  AreaChart,
-  Area,
-  XAxis,
-  YAxis,
-  CartesianGrid,
-  Tooltip,
-  ResponsiveContainer,
-} from "recharts";
 import MobileProviderSheet from "../_components/MobileProviderSheet";
 import { Sheet, SegControl, SectionTitle, EmptyState, LoadingState, AuthNeeded } from "../_components/ui";
 import { MOBILE_PERIODS, fmtTokens, timeAgo } from "../_lib/format";
-import { fetchUsageStats, fetchUsageChart, fetchMobileProviders } from "../_lib/api";
+import { fetchUsageStats, fetchMobileProviders } from "../_lib/api";
 import { AI_PROVIDERS } from "@/shared/constants/providers";
 
 const MobileProviderTopology = dynamic(() => import("../_components/MobileProviderTopology"), { ssr: false });
@@ -60,12 +51,9 @@ RequestDetail.propTypes = {
 
 export default function MobileUsagePage() {
   const [period, setPeriod] = useState("today");
-  const [chartMode, setChartMode] = useState("tokens");
   const [stats, setStats] = useState(null);
-  const [chart, setChart] = useState([]);
   const [providers, setProviders] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [chartLoading, setChartLoading] = useState(true);
   const [isLive, setIsLive] = useState(false);
   const [authNeeded, setAuthNeeded] = useState(false);
   const [selectedProvider, setSelectedProvider] = useState(null);
@@ -86,22 +74,6 @@ export default function MobileUsagePage() {
       })
       .finally(() => {
         if (!cancelled) setLoading(false);
-      });
-    return () => {
-      cancelled = true;
-    };
-  }, [period]);
-
-  useEffect(() => {
-    let cancelled = false;
-    setChartLoading(true);
-    fetchUsageChart(period === "today" || period === "24h" ? "7d" : period)
-      .then((data) => {
-        if (!cancelled) setChart(data);
-      })
-      .catch(() => {})
-      .finally(() => {
-        if (!cancelled) setChartLoading(false);
       });
     return () => {
       cancelled = true;
@@ -157,7 +129,6 @@ export default function MobileUsagePage() {
   const completionTokens = stats?.totalCompletionTokens || 0;
   const lastProvider = stats?.recentRequests?.[0]?.provider || "";
   const errorProvider = stats?.errorProvider || "";
-  const hasChart = chart.some((d) => (d.tokens || 0) > 0 || (d.cost || 0) > 0);
 
   return (
     <div className="flex flex-col gap-4">
@@ -199,51 +170,6 @@ export default function MobileUsagePage() {
                 <span className="text-[9px] font-bold text-text-muted uppercase tracking-wider block">Output</span>
                 <span className="text-sm font-bold text-success font-mono">{fmtTokens(completionTokens)}</span>
               </div>
-            </div>
-          </div>
-
-          <div className="flex flex-col gap-1.5">
-            <SectionTitle
-              right={
-                <SegControl
-                  label="Chart mode"
-                  options={[
-                    { value: "tokens", label: "Tokens" },
-                    { value: "cost", label: "Cost" },
-                  ]}
-                  value={chartMode}
-                  onChange={setChartMode}
-                />
-              }
-            >
-              Traffic
-            </SectionTitle>
-            <div className="rounded-xl border border-border bg-bg/80 p-2">
-              {chartLoading ? (
-                <div className="h-[180px] flex items-center justify-center text-xs text-text-muted">Loading chart…</div>
-              ) : !hasChart ? (
-                <div className="h-[180px] flex items-center justify-center text-xs text-text-muted">No traffic in range</div>
-              ) : (
-                <ResponsiveContainer width="100%" height={180}>
-                  <AreaChart data={chart} margin={{ top: 4, right: 4, left: -18, bottom: 0 }}>
-                    <CartesianGrid strokeDasharray="3 3" stroke="var(--color-border)" opacity={0.5} />
-                    <XAxis dataKey="label" tick={{ fontSize: 10, fill: "var(--color-text-muted)" }} tickLine={false} axisLine={false} minTickGap={32} />
-                    <YAxis tick={{ fontSize: 10, fill: "var(--color-text-muted)" }} tickLine={false} axisLine={false} width={44} tickFormatter={(v) => (chartMode === "cost" ? `$${v}` : fmtTokens(v))} />
-                    <Tooltip
-                      contentStyle={{ background: "var(--color-bg)", border: "1px solid var(--color-border)", borderRadius: 8, fontSize: 12 }}
-                      formatter={(v) => (chartMode === "cost" ? `$${Number(v).toFixed(4)}` : fmtTokens(v))}
-                    />
-                    <Area
-                      type="monotone"
-                      dataKey={chartMode}
-                      stroke="#E56A4A"
-                      strokeWidth={2}
-                      fill="#E56A4A"
-                      fillOpacity={0.18}
-                    />
-                  </AreaChart>
-                </ResponsiveContainer>
-              )}
             </div>
           </div>
 

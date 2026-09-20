@@ -108,6 +108,39 @@ export async function sendChatCompletion({ model, messages, signal }) {
   return res;
 }
 
+// Custom provider nodes (OpenAI / Anthropic compatible endpoints).
+export async function fetchProviderNodes() {
+  const data = await getJson("/api/provider-nodes").catch(() => ({ nodes: [] }));
+  return data.nodes || [];
+}
+
+export async function createProviderNode(payload) {
+  const res = await fetch("/api/provider-nodes", {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || `create ${res.status}`);
+  return data.node;
+}
+
+export async function updateProviderNode(id, payload) {
+  const res = await fetch(`/api/provider-nodes/${encodeURIComponent(id)}`, {
+    method: "PUT",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) throw new Error(data.error || `update ${res.status}`);
+  return data.node;
+}
+
+export async function deleteProviderNode(id) {
+  const res = await fetch(`/api/provider-nodes/${encodeURIComponent(id)}`, { method: "DELETE" });
+  if (!res.ok) throw new Error(`delete ${res.status}`);
+}
+
 export async function fetchKeys() {
   const data = await getJson("/api/keys").catch(() => ({ keys: [] }));
   return data.keys || [];
