@@ -29,7 +29,7 @@ export default function MobileProviderSheet({ provider, stats, onClose }) {
         onClick={onClose}
         aria-hidden="true"
       />
-      <div className="relative w-full max-w-lg bg-bg rounded-t-2xl border-t border-border p-5 shadow-2xl z-10 flex flex-col gap-4 animate-slide-up">
+      <div className="relative w-full max-w-lg max-h-[85dvh] overflow-y-auto bg-bg rounded-t-2xl border-t border-border p-5 shadow-2xl z-10 flex flex-col gap-4 animate-slide-up">
         {/* Drag handle pill */}
         <div className="w-10 h-1 rounded-full bg-border mx-auto -mt-1 mb-1" />
 
@@ -50,7 +50,7 @@ export default function MobileProviderSheet({ provider, stats, onClose }) {
           <button
             type="button"
             onClick={onClose}
-            className="p-1.5 rounded-full text-text-muted hover:text-text hover:bg-bg-subtle"
+            className="m-touch-target w-10 h-10 flex items-center justify-center rounded-full text-text-muted hover:text-text hover:bg-bg-subtle shrink-0"
           >
             <span className="material-symbols-outlined text-[20px]">close</span>
           </button>
@@ -59,7 +59,7 @@ export default function MobileProviderSheet({ provider, stats, onClose }) {
         {/* Status Live */}
         {activeModels.length > 0 && (
           <div className="flex items-center gap-2 px-3 py-2 rounded-lg bg-success/10 border border-success/30 text-success text-xs font-semibold">
-            <span className="w-2 h-2 rounded-full bg-success animate-ping" />
+            <span className="w-2 h-2 rounded-full bg-success" />
             <span className="truncate">Active Now: {activeModels.join(", ")}</span>
           </div>
         )}
@@ -94,7 +94,7 @@ export default function MobileProviderSheet({ provider, stats, onClose }) {
         <button
           type="button"
           onClick={onClose}
-          className="w-full mt-2 py-2.5 rounded-xl bg-primary text-white font-semibold text-sm active:opacity-90"
+          className="m-touch-target w-full mt-2 py-2.5 rounded-xl bg-primary text-white font-semibold text-sm active:opacity-90"
         >
           Close
         </button>

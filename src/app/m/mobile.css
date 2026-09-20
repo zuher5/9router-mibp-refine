@@ -10,9 +10,30 @@
   padding-bottom: var(--m-safe-bottom);
 }
 
-.m-touch-target {
+.m-touch-target,
+.m-touch-target input,
+.m-touch-target textarea {
+  -webkit-tap-highlight-color: transparent;
+}
+
+button.m-touch-target,
+a.m-touch-target,
+select.m-touch-target {
   min-height: 48px;
   min-width: 48px;
+}
+
+/* Inputs need >=16px to stop iOS Safari auto-zoom on focus.
+   Minimum height kept 48px for thumb accuracy. */
+input.m-touch-target,
+textarea.m-touch-target {
+  min-height: 48px;
+  min-width: 0;
+  font-size: 16px;
+}
+
+input, textarea, select {
+  -webkit-tap-highlight-color: transparent;
 }
 
 @keyframes m-slide-up {

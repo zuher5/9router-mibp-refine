@@ -182,7 +182,7 @@ export default function MobileChatPage() {
           <div className="grid grid-cols-2 gap-2">
             <label className="flex flex-col gap-1 min-w-0">
               <span className="text-[10px] font-bold text-text-muted uppercase tracking-wider px-1">Connection</span>
-              <select value={connId} onChange={(e) => setConnId(e.target.value)} className={selectCls} aria-label="Connection">
+              <select value={connId} onChange={(e) => setConnId(e.target.value)} className={`${selectCls} text-base`} aria-label="Connection">
                 {connections.map((c) => (
                   <option key={c.id} value={c.id}>
                     {c.name || c.provider}
@@ -194,7 +194,7 @@ export default function MobileChatPage() {
               <span className="text-[10px] font-bold text-text-muted uppercase tracking-wider px-1">
                 Model{modelsLoading ? " (…)" : ""}
               </span>
-              <select value={modelId} onChange={(e) => setModelId(e.target.value)} className={selectCls} aria-label="Model">
+              <select value={modelId} onChange={(e) => setModelId(e.target.value)} className={`${selectCls} text-base`} aria-label="Model">
                 {models.map((m) => (
                   <option key={m.id} value={m.id}>
                     {m.name}
@@ -234,9 +234,9 @@ export default function MobileChatPage() {
                 }
               }}
               rows={2}
-              placeholder="Type a test prompt…"
+              placeholder="Type a test prompt..."
               aria-label="Message"
-              className="flex-1 min-w-0 px-3 py-2.5 rounded-xl border border-border bg-bg-subtle text-[13px] text-text placeholder:text-text-subtle resize-none"
+              className="m-touch-target flex-1 min-w-0 px-3 py-2.5 rounded-xl border border-border bg-bg-subtle text-base text-text placeholder:text-text-subtle resize-none"
             />
             {sending ? (
               <button

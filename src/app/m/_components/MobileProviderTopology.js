@@ -13,8 +13,6 @@ import "@xyflow/react/dist/style.css";
 import { AI_PROVIDERS } from "@/shared/constants/providers";
 import { getProviderIconSrc } from "@/shared/utils/providerIcon";
 
-const KAME_PARTICLE_COUNT = 4;
-
 function getProviderConfig(providerId) {
   return AI_PROVIDERS[providerId] || { color: "#6b7280", name: providerId };
 }
@@ -66,12 +64,9 @@ function MobileProviderNode({ data }) {
         {label}
       </span>
 
-      {/* Pulse dot */}
+      {/* Active dot — static, no ping */}
       {active && (
-        <span className="relative flex h-2 w-2 shrink-0">
-          <span className="animate-ping absolute inline-flex h-full w-full rounded-full opacity-75" style={{ backgroundColor: color }} />
-          <span className="relative inline-flex rounded-full h-2 w-2" style={{ backgroundColor: color }} />
-        </span>
+        <span className="w-2 h-2 rounded-full shrink-0" style={{ backgroundColor: color }} />
       )}
     </div>
   );
@@ -88,7 +83,7 @@ function MobileRouterNode({ data }) {
     <div
       className={`relative z-[1] flex items-center justify-center px-3.5 py-2 rounded-xl border min-w-[100px] select-none ${
         powering
-          ? "border-yellow-300 bg-gradient-to-br from-primary/30 via-yellow-400/20 to-cyan-400/25"
+          ? "border-warning bg-warning/10"
           : "border-primary bg-primary/5"
       }`}
     >
@@ -97,11 +92,11 @@ function MobileRouterNode({ data }) {
       <Handle type="source" position={Position.Left} id="left" className="!bg-transparent !border-0 !w-0 !h-0" />
       <Handle type="source" position={Position.Right} id="right" className="!bg-transparent !border-0 !w-0 !h-0" />
 
-      <span className={`text-xs font-bold ${powering ? "text-yellow-300" : "text-primary"}`}>
+      <span className={`text-xs font-bold ${powering ? "text-warning" : "text-primary"}`}>
         9Router
       </span>
       {data.activeCount > 0 && (
-        <span className="ml-1.5 px-1 py-0.2 rounded-full bg-yellow-400 text-black text-[10px] font-black">
+        <span className="ml-1.5 px-1 py-0.2 rounded-full bg-warning text-black text-[10px] font-black">
           {data.activeCount}
         </span>
       )}
@@ -140,44 +135,22 @@ function MobileTopologyEdge({
     return <BaseEdge id={id} path={edgePath} style={{ ...style, stroke }} />;
   }
 
+  // Active routes draw a static accent band — no particle animation.
   return (
     <g>
       <path
         d={edgePath}
         fill="none"
-        stroke="#22d3ee"
-        strokeWidth={7}
-        strokeOpacity={0.35}
-        strokeLinecap="round"
-      />
-      <path
-        d={edgePath}
-        fill="none"
-        stroke="#4ade80"
-        strokeWidth={3.5}
-        strokeOpacity={0.85}
+        stroke="#E56A4A"
+        strokeWidth={4}
+        strokeOpacity={0.5}
         strokeLinecap="round"
       />
       <BaseEdge
         id={id}
         path={edgePath}
-        style={{ stroke: "#f8fafc", strokeWidth: 1.8, opacity: 1 }}
+        style={{ stroke: "#f8fafc", strokeWidth: 1.4 }}
       />
-      {Array.from({ length: KAME_PARTICLE_COUNT }, (_, i) => (
-        <circle
-          key={`${id}-p-${i}`}
-          r={i % 2 === 0 ? 3 : 2}
-          fill={i % 2 === 0 ? "#fde047" : "#67e8f9"}
-          opacity={0.95}
-        >
-          <animateMotion
-            dur={`${0.6 + i * 0.12}s`}
-            repeatCount="indefinite"
-            path={edgePath}
-            begin={`${i * 0.15}s`}
-          />
-        </circle>
-      ))}
     </g>
   );
 }
@@ -334,7 +307,7 @@ export default function MobileProviderTopology({
         <button
           type="button"
           onClick={() => rfInstance.current?.fitView({ padding: 0.12, duration: 200 })}
-          className="p-1.5 rounded-md bg-bg/90 border border-border text-text-muted hover:text-text shadow-sm"
+          className="m-touch-target w-11 h-11 flex items-center justify-center rounded-md bg-bg/90 border border-border text-text-muted hover:text-text shadow-sm"
           title="Reset View"
         >
           <span className="material-symbols-outlined text-[16px] leading-none">center_focus_strong</span>

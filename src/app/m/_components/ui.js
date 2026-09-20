@@ -122,7 +122,7 @@ LoadingState.propTypes = {
 export function AuthNeeded() {
   return (
     <div className="p-3.5 rounded-xl border border-warning/40 bg-warning/10 text-xs text-text">
-      Session required. <a className="font-bold text-primary underline" href="/login?next=/m/usage">Login</a> to load data.
+      Session required. <a className="font-bold text-primary underline" href="/login?next=/m/tools">Login</a> to load data.
     </div>
   );
 }

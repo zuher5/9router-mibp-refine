@@ -285,6 +285,10 @@ export async function proxy(request) {
 
   // Protect all dashboard + mobile routes (same policy, no auth gap on /m)
   if (pathname.startsWith("/dashboard") || pathname === "/m" || pathname.startsWith("/m/")) {
+    // Legacy "More" tab was renamed to the Tools hub.
+    if (pathname === "/m/more" || pathname.startsWith("/m/more/")) {
+      return NextResponse.redirect(new URL("/m/tools", request.url));
+    }
     // Mobile browsers default to the touch UI unless they opted into desktop.
     if (
       isMobileUserAgent(request) &&

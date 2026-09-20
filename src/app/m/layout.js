@@ -5,14 +5,14 @@ import { usePathname } from "next/navigation";
 import PropTypes from "prop-types";
 import "./mobile.css";
 
-// Five primary destinations. Everything else lives under the More hub
-// so primary actions stay one thumb tap away.
+// Five primary destinations, matching the core dashboard modules.
+// Everything else (chat, logs, pools, profile) lives under the Tools hub.
 const NAV_ITEMS = [
   { href: "/m/usage", label: "Usage", icon: "monitoring" },
+  { href: "/m/endpoint", label: "Endpoint", icon: "api" },
   { href: "/m/providers", label: "Providers", icon: "hub" },
-  { href: "/m/chat", label: "Chat", icon: "chat" },
-  { href: "/m/logs", label: "Logs", icon: "terminal" },
-  { href: "/m/more", label: "More", icon: "apps" },
+  { href: "/m/combos", label: "Combos", icon: "layers" },
+  { href: "/m/tools", label: "Tools", icon: "apps" },
 ];
 
 export function setDesktopPreference() {
@@ -25,9 +25,10 @@ export function setDesktopPreference() {
 
 function isActivePath(pathname, href) {
   if (pathname === href) return true;
-  // Sub-pages (endpoint, combos, pools, quota, profile) highlight the More tab.
-  if (href === "/m/more") {
-    return ["/m/endpoint", "/m/combos", "/m/pools", "/m/quota", "/m/profile", "/m/settings"].some(
+  // Sub-pages (pools, quota, cli-tools, chat, logs, profile, settings)
+  // stay reachable below the Tools tab.
+  if (href === "/m/tools") {
+    return ["/m/pools", "/m/quota", "/m/cli-tools", "/m/chat", "/m/logs", "/m/profile", "/m/settings"].some(
       (p) => pathname === p || pathname.startsWith(`${p}/`)
     );
   }
@@ -80,7 +81,7 @@ export default function MobileLayout({ children }) {
                 active ? "text-primary font-semibold" : "text-text-muted hover:text-text"
               }`}
             >
-              <span className={`material-symbols-outlined text-[22px] ${active ? "scale-110" : ""}`}>
+              <span className="material-symbols-outlined text-[22px]">
                 {item.icon}
               </span>
               <span className="text-[11px] leading-none">{item.label}</span>

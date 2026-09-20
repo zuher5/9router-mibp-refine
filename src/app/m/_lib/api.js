@@ -172,6 +172,11 @@ export async function fetchAppVersion() {
   return data.currentVersion || data.version || "unknown";
 }
 
+export async function fetchCliToolStatuses() {
+  const data = await getJson("/api/cli-tools/all-statuses").catch(() => ({}));
+  return data || {};
+}
+
 export async function fetchRequireLogin() {
   const data = await getJson("/api/settings/require-login").catch(() => ({}));
   return data.requireLogin !== false;
@@ -182,6 +187,15 @@ export async function setRequireLogin(requireLogin) {
     method: "PATCH",
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify({ requireLogin }),
+  });
+  if (!res.ok) throw new Error(`save ${res.status}`);
+}
+
+export async function setCapacityAdapter(adapter) {
+  const res = await fetch("/api/settings", {
+    method: "PATCH",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ capacityAdapter: adapter }),
   });
   if (!res.ok) throw new Error(`save ${res.status}`);
 }

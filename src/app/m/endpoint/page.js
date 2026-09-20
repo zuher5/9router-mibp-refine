@@ -119,7 +119,7 @@ export default function MobileEndpointPage() {
             onChange={(e) => setName(e.target.value)}
             placeholder="Key name"
             aria-label="Key name"
-            className="m-touch-target flex-1 min-w-0 px-3 rounded-xl border border-border bg-bg-subtle text-xs text-text"
+            className="m-touch-target flex-1 min-w-0 px-3 rounded-xl border border-border bg-bg-subtle text-base text-text"
           />
           <button
             type="button"
