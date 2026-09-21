@@ -6,11 +6,13 @@ import { promisify } from "util";
 import fs from "fs/promises";
 import path from "path";
 import os from "os";
+import { CLI_TOOLS_CONFIG } from "@/shared/constants/config";
 
 const execAsync = promisify(exec);
 
 const PROVIDER_ID = "9router";
 const PROVIDER_PACKAGE = "aisdk:@ai-sdk/openai-compatible";
+const CLOUD_PROVIDER_ID = CLI_TOOLS_CONFIG.cloudProviderId;
 
 const getConfigDir = () => path.join(os.homedir(), ".config", "opencode");
 const getConfigPath = () => path.join(getConfigDir(), "opencode.json");
@@ -143,6 +145,7 @@ export async function GET() {
           subagentModel: getSubAgentModel(config),
           baseURL: getProviderBaseURL(entry),
           format,
+          dualConfigured: !!config?.providers?.[CLOUD_PROVIDER_ID],
         },
     });
   } catch (error) {
@@ -155,7 +158,7 @@ export async function GET() {
 // Writes the native opencode V2 config format (providers/settings/agents).
 export async function POST(request) {
   try {
-    const { baseUrl, apiKey, model, models, activeModel, subagentModel } = await request.json();
+    const { baseUrl, apiKey, model, models, activeModel, subagentModel, includeCloud, cloudBaseUrl } = await request.json();
 
     // Accept either `model` (string, legacy) or `models` (array of strings)
     const modelsArray = Array.isArray(models) ? models.slice() : (typeof model === "string" ? [model] : []);
@@ -208,6 +211,20 @@ export async function POST(request) {
     }
 
     config.providers[PROVIDER_ID] = provider;
+
+    // Dual-endpoint mirror: write a cloud provider with the same models/key when asked.
+    if (includeCloud) {
+      const cloudUrl = (cloudBaseUrl || CLI_TOOLS_CONFIG.cloudBaseUrl).endsWith("/v1")
+        ? (cloudBaseUrl || CLI_TOOLS_CONFIG.cloudBaseUrl)
+        : `${cloudBaseUrl || CLI_TOOLS_CONFIG.cloudBaseUrl}/v1`;
+      config.providers[CLOUD_PROVIDER_ID] = {
+        package: PROVIDER_PACKAGE,
+        settings: { baseURL: cloudUrl, apiKey: keyToUse },
+        models: { ...provider.models },
+      };
+    } else {
+      delete config.providers[CLOUD_PROVIDER_ID];
+    }
 
     // Set the active model (V2 shorthand "9router/<model>").
     // If activeModel is explicitly empty string, clear the model.
@@ -301,12 +318,19 @@ export async function DELETE(request) {
 
     await backupConfig();
 
-    // If specific model provided, remove just that model
+    // If specific model provided, remove just that model (local + cloud mirror)
     if (modelToRemove) {
       const { entry } = getProviderEntry(config);
       const models = entry?.models;
       if (models && typeof models === "object" && modelToRemove in models) {
         delete models[modelToRemove];
+
+        // Mirror removal on the cloud provider, dropping it entirely when emptied.
+        const cloudEntry = config.providers?.[CLOUD_PROVIDER_ID];
+        if (cloudEntry?.models && modelToRemove in cloudEntry.models) {
+          delete cloudEntry.models[modelToRemove];
+          if (Object.keys(cloudEntry.models).length === 0) delete config.providers[CLOUD_PROVIDER_ID];
+        }
 
         // If no models left, remove the provider (V2 + legacy V1)
         if (Object.keys(models).length === 0) {
@@ -318,9 +342,10 @@ export async function DELETE(request) {
         }
       }
     } else {
-      // No specific model - remove entire 9router provider (V2 + legacy V1)
+      // No specific model - remove entire 9router provider (V2 + legacy V1) + cloud mirror
       if (config.providers) delete config.providers[PROVIDER_ID];
       if (config.provider) delete config.provider[PROVIDER_ID];
+      if (config.providers) delete config.providers[CLOUD_PROVIDER_ID];
     }
 
     if (config.provider && Object.keys(config.provider).length === 0) delete config.provider;

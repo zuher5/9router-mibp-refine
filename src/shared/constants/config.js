@@ -92,6 +92,16 @@ export const QUOTA_AUTOPING_CONFIG = {
   },
 };
 
+// CLI-tool dual-endpoint mirror (local + cloud) written by the dashboard cards.
+export const CLI_TOOLS_CONFIG = {
+  // Optional dual-endpoint cloud mirror written when a dashboard card applies
+  // with includeCloud=true. Override per-install via CLI_TOOLS_CLOUD_URL.
+  cloudBaseUrl:
+    process.env.CLI_TOOLS_CLOUD_URL ||
+    "https://9router-mibp-refine.zuher.blitz.cloud/v1",
+  cloudProviderId: "9router-cloud",
+};
+
 // Re-export from providers.js for backward compatibility
 export {
   FREE_PROVIDERS,

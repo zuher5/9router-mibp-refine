@@ -6,11 +6,13 @@ import { promisify } from "util";
 import fs from "fs/promises";
 import path from "path";
 import os from "os";
+import { CLI_TOOLS_CONFIG } from "@/shared/constants/config";
 
 const execAsync = promisify(exec);
 
 const PROVIDER_ID = "9router";
 const API_KEY_ENV = "OPENAI_API_KEY";
+const CLOUD_PROVIDER_ID = CLI_TOOLS_CONFIG.cloudProviderId;
 
 // Hermes home resolution mirrors hermes_constants.get_hermes_home():
 // context override → HERMES_HOME env var → platform default
@@ -67,15 +69,15 @@ const buildModelBlock = (model, baseUrl, existingModel) => {
 // (verified: model_setup_flows_custom.py / model_switch.py honor discover_models=false and use
 // the configured models verbatim). per-entry api_mode / transport are preserved (entries may
 // use "transport" as the v12 spelling).
-const buildProviderEntryYaml = (baseUrl, activeModel, models, existingEntry = null) => {
+const buildProviderEntryYaml = (baseUrl, activeModel, models, existingEntry = null, providerId = PROVIDER_ID) => {
   const preserved = existingEntry || {};
   const extras = ["api_mode", "transport"]
     .filter((k) => preserved[k])
     .map((k) => `    ${k}: ${preserved[k]}\n`)
     .join("");
   return (
-    `  ${PROVIDER_ID}:\n` +
-    `    name: ${PROVIDER_ID}\n` +
+    `  ${providerId}:\n` +
+    `    name: ${providerId}\n` +
     `    base_url: "${baseUrl}"\n` +
     `    key_env: ${API_KEY_ENV}\n` +
     `    model: "${activeModel}"\n` +
@@ -126,15 +128,15 @@ const parseModelsItem = (line) => {
   return dashed ? (rest || null) : null;
 };
 
-// Parse providers.9router entry back to fields: name, base_url/api/url, key_env, model,
+// Parse a provider entry back to fields: name, base_url/api/url, key_env, model,
 // default_model, api_mode/transport, models (array of ids).
-const parseProviderEntry = (yaml) => {
+const parseProviderEntry = (yaml, providerId = PROVIDER_ID) => {
   const block = yaml.match(PROVIDERS_BLOCK_RE);
   if (!block) return null;
   const body = block[1] || "";
   let entryBody = null;
   for (const m of body.matchAll(PROVIDER_ENTRY_RE)) {
-    if (m[1].trim() === PROVIDER_ID) {
+    if (m[1].trim() === providerId) {
       entryBody = m[2] || "";
       break;
     }
@@ -168,26 +170,27 @@ const upsertModelBlock = (yaml, newBlock) => {
 
 const removeModelBlock = (yaml) => yaml.replace(MODEL_BLOCK_RE, "").replace(/^\n+/, "");
 
-// Insert/update providers.9router inside the "providers:" block, preserving other entries.
-const upsertProviderEntry = (yaml, entryYaml) => {
+// Insert/update a provider entry inside the "providers:" block, preserving other entries.
+// Entries not yet present are prepended, so upserting cloud LAST keeps local FIRST.
+const upsertProviderEntry = (yaml, entryYaml, providerId = PROVIDER_ID) => {
   const block = yaml.match(PROVIDERS_BLOCK_RE);
   if (!block) {
     return `${yaml.replace(/\s*$/, "")}\n\nproviders:\n${entryYaml}`;
   }
   const body = block[1] || "";
-  const entryRe = new RegExp(`^[ \\t]{2}${PROVIDER_ID}:[ \\t]*\\r?\\n((?:[ \\t]{4,}.*\\r?\\n?|[ \\t]*\\r?\\n)*)`, "m");
+  const entryRe = new RegExp(`^[ \\t]{2}${providerId}:[ \\t]*\\r?\\n((?:[ \\t]{4,}.*\\r?\\n?|[ \\t]*\\r?\\n)*)`, "m");
   const newBlock = entryRe.test(body)
     ? `providers:\n${body.replace(entryRe, entryYaml)}`
     : `providers:\n${entryYaml}${body}`;
   return yaml.replace(PROVIDERS_BLOCK_RE, newBlock);
 };
 
-// Remove providers.9router; drops the whole "providers:" block when it becomes empty.
-const removeProviderEntry = (yaml) => {
+// Remove a provider entry; drops the whole "providers:" block when it becomes empty.
+const removeProviderEntry = (yaml, providerId = PROVIDER_ID) => {
   const block = yaml.match(PROVIDERS_BLOCK_RE);
   if (!block) return yaml;
   const body = block[1] || "";
-  const entryRe = new RegExp(`^[ \\t]{2}${PROVIDER_ID}:[ \\t]*\\r?\\n((?:[ \\t]{4,}.*\\r?\\n?|[ \\t]*\\r?\\n)*)`, "m");
+  const entryRe = new RegExp(`^[ \\t]{2}${providerId}:[ \\t]*\\r?\\n((?:[ \\t]{4,}.*\\r?\\n?|[ \\t]*\\r?\\n)*)`, "m");
   if (!entryRe.test(body)) return yaml;
   const newBody = body.replace(entryRe, "");
   if (!newBody.replace(/[ \t\r\n]+/g, "")) {
@@ -263,6 +266,14 @@ const has9RouterConfig = (modelCfg, providerCfg) => {
 const providerUrl = (providerCfg, modelCfg) =>
   providerCfg?.api || providerCfg?.url || providerCfg?.base_url || modelCfg?.base_url || null;
 
+export const __test__ = {
+  buildProviderEntryYaml,
+  parseProviderEntry,
+  upsertProviderEntry,
+  removeProviderEntry,
+  upsertEnvVar,
+};
+
 export async function GET() {
   try {
     const installed = await checkHermesInstalled();
@@ -302,6 +313,7 @@ export async function GET() {
         baseURL,
         defaultModel: provider?.default_model || "",
         format: provider ? "native" : "legacy",
+        dualConfigured: !!parseProviderEntry(sourceYaml, CLOUD_PROVIDER_ID),
       },
     });
   } catch (error) {
@@ -315,7 +327,7 @@ export async function GET() {
 // Hermes config; everything else in the file is left untouched.
 export async function POST(request) {
   try {
-    const { baseUrl, apiKey, model, models, activeModel } = await request.json();
+    const { baseUrl, apiKey, model, models, activeModel, includeCloud, cloudBaseUrl } = await request.json();
 
     // Accept either `model` (string, legacy) or `models` (array of strings)
     const requested = Array.isArray(models) ? models : (typeof model === "string" ? [model] : []);
@@ -337,6 +349,18 @@ export async function POST(request) {
     const existingProvider = parseProviderEntry(existingYaml);
 
     let newYaml = upsertModelBlock(existingYaml, buildModelBlock(finalActive, normalizedBaseUrl, existingModel));
+
+    // Dual-endpoint mirror: write a cloud provider with the same models when asked.
+    // Upsert cloud FIRST so a freshly inserted local entry stays above it.
+    if (includeCloud) {
+      const cloudUrl = (cloudBaseUrl || CLI_TOOLS_CONFIG.cloudBaseUrl).endsWith("/v1")
+        ? (cloudBaseUrl || CLI_TOOLS_CONFIG.cloudBaseUrl)
+        : `${cloudBaseUrl || CLI_TOOLS_CONFIG.cloudBaseUrl}/v1`;
+      const existingCloud = parseProviderEntry(existingYaml, CLOUD_PROVIDER_ID);
+      newYaml = upsertProviderEntry(newYaml, buildProviderEntryYaml(cloudUrl, finalActive, modelsArray, existingCloud, CLOUD_PROVIDER_ID));
+    } else if (parseProviderEntry(existingYaml, CLOUD_PROVIDER_ID)) {
+      newYaml = removeProviderEntry(newYaml, CLOUD_PROVIDER_ID);
+    }
     newYaml = upsertProviderEntry(newYaml, buildProviderEntryYaml(normalizedBaseUrl, finalActive, modelsArray, existingProvider));
     await fs.writeFile(getHermesConfigPath(), newYaml);
 
@@ -387,8 +411,9 @@ export async function DELETE(request) {
       }
       const remaining = models.filter((m) => m !== modelToRemove);
       if (remaining.length === 0) {
-        // Last model removed — reset the whole 9router integration.
+        // Last model removed — reset the whole 9router integration (+ cloud mirror).
         yaml = removeProviderEntry(yaml);
+        yaml = removeProviderEntry(yaml, CLOUD_PROVIDER_ID);
         yaml = removeModelBlock(yaml);
         await fs.writeFile(configPath, yaml);
         return NextResponse.json({ success: true, message: `${PROVIDER_ID} settings removed (no models left)` });
@@ -397,12 +422,19 @@ export async function DELETE(request) {
       const finalActive = model?.default === modelToRemove ? remaining[0] : (model?.default || remaining[0]);
       let newYaml = removeProviderEntry(yaml);
       newYaml = upsertProviderEntry(newYaml, buildProviderEntryYaml(url, finalActive, remaining, provider));
+      const cloudEntry = parseProviderEntry(yaml, CLOUD_PROVIDER_ID);
+      if (cloudEntry) {
+        newYaml = removeProviderEntry(newYaml, CLOUD_PROVIDER_ID);
+        const cloudUrl = providerUrl(cloudEntry, null) || "";
+        newYaml = upsertProviderEntry(newYaml, buildProviderEntryYaml(cloudUrl, finalActive, remaining, cloudEntry, CLOUD_PROVIDER_ID));
+      }
       newYaml = upsertModelBlock(newYaml, buildModelBlock(finalActive, url, model));
       await fs.writeFile(configPath, newYaml);
       return NextResponse.json({ success: true, message: `Model "${modelToRemove}" removed` });
     }
 
     yaml = removeProviderEntry(yaml);
+    yaml = removeProviderEntry(yaml, CLOUD_PROVIDER_ID);
     yaml = removeModelBlock(yaml);
     await fs.writeFile(configPath, yaml);
     return NextResponse.json({ success: true, message: `${PROVIDER_ID} settings removed from Hermes` });
