@@ -34,8 +34,6 @@ export default function LoginPage() {
     } catch {
       /* ignore */
     }
-    const ua = navigator.userAgent || "";
-    if (/android|iphone|ipad|ipod|mobile/i.test(ua)) return "/m/usage";
     return "/dashboard";
   }
 

@@ -191,15 +191,6 @@ function isPublicApi(pathname) {
   return PUBLIC_API_PATHS.some((p) => pathname === p || pathname.startsWith(`${p}/`));
 }
 
-function isMobileUserAgent(request) {
-  const ua = request.headers.get("user-agent") || "";
-  return /android|iphone|ipad|ipod|mobile/i.test(ua);
-}
-
-function prefersDesktop(request) {
-  return request.cookies.get("pref_desktop")?.value === "1";
-}
-
 function loginRedirect(request, nextPath) {
   const url = new URL("/login", request.url);
   if (nextPath) url.searchParams.set("next", nextPath);
@@ -283,30 +274,18 @@ export async function proxy(request) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
   }
 
-  // Protect all dashboard + mobile routes (same policy, no auth gap on /m)
-  if (pathname.startsWith("/dashboard") || pathname === "/m" || pathname.startsWith("/m/")) {
-    // Legacy "More" tab was renamed to the Tools hub.
-    if (pathname === "/m/more" || pathname.startsWith("/m/more/")) {
-      return NextResponse.redirect(new URL("/m/tools", request.url));
-    }
-    // Mobile browsers default to the touch UI unless they opted into desktop.
-    if (
-      isMobileUserAgent(request) &&
-      !prefersDesktop(request) &&
-      (pathname === "/dashboard" ||
-        pathname === "/dashboard/usage" ||
-        pathname.startsWith("/dashboard/usage/"))
-    ) {
-      return NextResponse.redirect(new URL("/m/usage", request.url));
-    }
+  // Legacy mobile UI (/m) was removed — send old bookmarks to the dashboard.
+  if (pathname === "/m" || pathname.startsWith("/m/")) {
+    return NextResponse.redirect(new URL("/dashboard", request.url));
+  }
+
+  // Protect all dashboard routes
+  if (pathname.startsWith("/dashboard")) {
     return guardDashboardRoute(request, pathname);
   }
 
-  // Redirect / to /dashboard if logged in, or /dashboard if it's the root
+  // Redirect / to /dashboard
   if (pathname === "/") {
-    if (isMobileUserAgent(request) && !prefersDesktop(request)) {
-      return NextResponse.redirect(new URL("/m/usage", request.url));
-    }
     return NextResponse.redirect(new URL("/dashboard", request.url));
   }
 
