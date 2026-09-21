@@ -1,5 +1,6 @@
 import { describe, it, expect } from "vitest";
 import {
+  buildModelBlock,
   buildProviderEntryYaml,
   parseProviderEntry,
   upsertProviderEntry,
@@ -11,6 +12,20 @@ const CLOUD = "https://9router.example.cloud/v1";
 const MODELS = ["ag/gemini-3.8-flash-high", "oc/big-pickle"];
 
 describe("hermes dual-endpoint helpers", () => {
+  it("builds a cloud-default model block when includeCloud is on", () => {
+    const yaml = buildModelBlock(MODELS[0], CLOUD, null, "9router-cloud");
+    expect(yaml).toContain('  provider: "9router-cloud"');
+    expect(yaml).toContain(`  base_url: "${CLOUD}"`);
+    expect(yaml).toContain('  default: "ag/gemini-3.8-flash-high"');
+    expect(yaml).toContain("  api_key: ${OPENAI_API_KEY}");
+  });
+
+  it("keeps the local model block when includeCloud is off", () => {
+    const yaml = buildModelBlock(MODELS[0], LOCAL);
+    expect(yaml).toContain('  provider: "9router"');
+    expect(yaml).toContain(`  base_url: "${LOCAL}"`);
+  });
+
   it("builds a cloud provider entry mirroring the local one", () => {
     const yaml = buildProviderEntryYaml(CLOUD, "ag/gemini-3.8-flash-high", MODELS, null, "9router-cloud");
     expect(yaml).toContain("  9router-cloud:");

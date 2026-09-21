@@ -72,12 +72,20 @@ const getProviderBaseURL = (entry) => entry?.settings?.baseURL || entry?.options
 
 const getProviderModels = (entry) => Object.keys(entry?.models || {});
 
+const stripProviderPrefix = (model, providerId) =>
+  typeof model === "string" && model.startsWith(`${providerId}/`)
+    ? model.slice(providerId.length + 1)
+    : null;
+
 const getActiveModel = (config) => {
-  if (typeof config?.model === "string" && config.model.startsWith(`${PROVIDER_ID}/`)) {
-    return config.model.slice(PROVIDER_ID.length + 1);
+  if (typeof config?.model === "string") {
+    const local = stripProviderPrefix(config.model, PROVIDER_ID);
+    if (local !== null) return local;
+    const cloud = stripProviderPrefix(config.model, CLOUD_PROVIDER_ID);
+    if (cloud !== null) return cloud;
   }
   const agentModel = config?.agents?.explorer?.model;
-  if (agentModel && typeof agentModel === "object" && agentModel.providerID === PROVIDER_ID) {
+  if (agentModel && typeof agentModel === "object" && [PROVIDER_ID, CLOUD_PROVIDER_ID].includes(agentModel.providerID)) {
     return agentModel.model;
   }
   return null;
@@ -85,11 +93,14 @@ const getActiveModel = (config) => {
 
 const getSubAgentModel = (config) => {
   const agentModel = config?.agents?.explorer?.model;
-  if (agentModel && typeof agentModel === "object" && agentModel.providerID === PROVIDER_ID) {
+  if (agentModel && typeof agentModel === "object" && [PROVIDER_ID, CLOUD_PROVIDER_ID].includes(agentModel.providerID)) {
     return agentModel.model;
   }
-  if (typeof agentModel === "string" && agentModel.startsWith(`${PROVIDER_ID}/`)) {
-    return agentModel.slice(PROVIDER_ID.length + 1);
+  if (typeof agentModel === "string") {
+    const local = stripProviderPrefix(agentModel, PROVIDER_ID);
+    if (local !== null) return local;
+    const cloud = stripProviderPrefix(agentModel, CLOUD_PROVIDER_ID);
+    if (cloud !== null) return cloud;
   }
   return null;
 };
@@ -226,24 +237,26 @@ export async function POST(request) {
       delete config.providers[CLOUD_PROVIDER_ID];
     }
 
-    // Set the active model (V2 shorthand "9router/<model>").
-    // If activeModel is explicitly empty string, clear the model.
+    // Set the active model (V2 shorthand "<provider>/<model>"). Dual endpoint ON makes
+    // the cloud mirror the default active provider; local stays available as a choice.
+    const activeProviderId = includeCloud ? CLOUD_PROVIDER_ID : PROVIDER_ID;
     if (activeModel === "") {
       delete config.model;
     } else {
       const finalActive = activeModel || modelsArray[0];
       if (finalActive) {
-        config.model = `${PROVIDER_ID}/${finalActive}`;
+        config.model = `${activeProviderId}/${finalActive}`;
       }
     }
 
-    // Subagent configuration (V2 `agents`)
+    // Subagent configuration (V2 `agents`) — follows the active provider so the explorer
+    // keeps working when the local server is off.
     if (!config.agents) config.agents = {};
     const previousExplorer = config.agents.explorer || {};
     config.agents.explorer = {
       description: previousExplorer.description || "Fast explorer subagent for codebase exploration",
       mode: "subagent",
-      model: { providerID: PROVIDER_ID, model: effectiveSubagentModel },
+      model: { providerID: activeProviderId, model: effectiveSubagentModel },
     };
 
     await fs.writeFile(configPath, JSON.stringify(config, null, 2));
@@ -336,9 +349,10 @@ export async function DELETE(request) {
         if (Object.keys(models).length === 0) {
           if (config.providers) delete config.providers[PROVIDER_ID];
           if (config.provider) delete config.provider[PROVIDER_ID];
-        } else if (config.model === `${PROVIDER_ID}/${modelToRemove}`) {
-          // If removed model was active, switch to first remaining model
-          config.model = `${PROVIDER_ID}/${Object.keys(models)[0]}`;
+        } else if (config.model === `${PROVIDER_ID}/${modelToRemove}` || config.model === `${CLOUD_PROVIDER_ID}/${modelToRemove}`) {
+          // If removed model was active, switch to first remaining model (keep default-provider prefix)
+          const activeProviderId = config.model.startsWith(`${CLOUD_PROVIDER_ID}/`) ? CLOUD_PROVIDER_ID : PROVIDER_ID;
+          config.model = `${activeProviderId}/${Object.keys(models)[0]}`;
         }
       }
     } else {
@@ -350,8 +364,9 @@ export async function DELETE(request) {
 
     if (config.provider && Object.keys(config.provider).length === 0) delete config.provider;
 
-    // Remove active model if it referenced 9router
-    if (typeof config.model === "string" && config.model.startsWith(`${PROVIDER_ID}/`)) {
+    // Remove active model if it referenced 9router (local or cloud mirror)
+    if (typeof config.model === "string" &&
+        (config.model.startsWith(`${PROVIDER_ID}/`) || config.model.startsWith(`${CLOUD_PROVIDER_ID}/`))) {
       delete config.model;
     }
 

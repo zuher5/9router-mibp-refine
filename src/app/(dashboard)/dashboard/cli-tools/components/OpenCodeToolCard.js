@@ -227,17 +227,19 @@ export default function OpenCodeToolCard({ tool, isExpanded, onToggle, baseUrl, 
         models: modelsObj,
       };
     }
+    // Dual endpoint makes the cloud mirror the default active provider.
+    const defaultProviderId = includeCloud ? CLI_TOOLS_CONFIG.cloudProviderId : "9router";
 
     return [{
       filename: "~/.config/opencode/opencode.json",
       content: JSON.stringify({
         providers,
-        model: `9router/${activeModelToShow}`,
+        model: `${defaultProviderId}/${activeModelToShow}`,
         agents: {
           explorer: {
             description: "Fast explorer subagent for codebase exploration",
             mode: "subagent",
-            model: { providerID: "9router", model: effectiveSubagentModel }
+            model: { providerID: defaultProviderId, model: effectiveSubagentModel }
           }
         }
       }, null, 2),
@@ -354,8 +356,8 @@ export default function OpenCodeToolCard({ tool, isExpanded, onToggle, baseUrl, 
                   <Toggle
                     checked={includeCloud}
                     onChange={setIncludeCloud}
-                    label="Also configure cloud (9router-cloud)"
-                    description="Writes a second provider pointing at your cloud 9router alongside the local one."
+                    label="Cloud default (Lokal + Cloud)"
+                    description="Writes 9router-cloud and makes it the default; local stays as a manual backup."
                   />
                 </div>
                 {includeCloud && (

@@ -10,6 +10,7 @@ import { CLI_TOOLS_CONFIG } from "@/shared/constants/config";
 import {
   PROVIDER_ID,
   API_KEY_ENV,
+  buildModelBlock,
   buildProviderEntryYaml,
   parseProviderEntry,
   upsertProviderEntry,
@@ -46,21 +47,6 @@ const getBackupPath = () => path.join(getHermesDir(), "config.yaml.9router-bak")
 
 // Match top-level "model:" block (until next non-indented, non-empty line)
 const MODEL_BLOCK_RE = /^model:[ \t]*\r?\n((?:[ \t]+.*\r?\n?|[ \t]*\r?\n)*)/m;
-
-// Model block in Hermes' native format. `provider: 9router` resolves the named
-// providers.9router entry (key_env -> OPENAI_API_KEY) at runtime. api_mode is preserved
-// when the user's config already carries it (hermes writes api_mode into the model block).
-const buildModelBlock = (model, baseUrl, existingModel) => {
-  const apiMode = existingModel?.api_mode ? `  api_mode: ${existingModel.api_mode}\n` : "";
-  return (
-    `model:\n` +
-    `  default: "${model}"\n` +
-    `  provider: "${PROVIDER_ID}"\n` +
-    `  base_url: "${baseUrl}"\n` +
-    `  api_key: \${${API_KEY_ENV}}\n` +
-    apiMode
-  );
-};
 
 // Parse current model block back to fields (best-effort, simple key:value)
 const parseModelBlock = (yaml) => {
@@ -227,14 +213,22 @@ export async function POST(request) {
     const existingModel = parseModelBlock(existingYaml);
     const existingProvider = parseProviderEntry(existingYaml);
 
-    let newYaml = upsertModelBlock(existingYaml, buildModelBlock(finalActive, normalizedBaseUrl, existingModel));
+    // Dual-endpoint default: when includeCloud, the model block targets the cloud mirror
+    // (provider 9router-cloud + cloud base_url) so the default keeps working with the
+    // local server off; the local provider is still written as a manual choice.
+    const cloudUrl = includeCloud
+      ? ((cloudBaseUrl || CLI_TOOLS_CONFIG.cloudBaseUrl).endsWith("/v1")
+          ? (cloudBaseUrl || CLI_TOOLS_CONFIG.cloudBaseUrl)
+          : `${cloudBaseUrl || CLI_TOOLS_CONFIG.cloudBaseUrl}/v1`)
+      : null;
+    const defaultProviderId = includeCloud ? CLOUD_PROVIDER_ID : PROVIDER_ID;
+    const defaultBaseUrl = includeCloud ? cloudUrl : normalizedBaseUrl;
+
+    let newYaml = upsertModelBlock(existingYaml, buildModelBlock(finalActive, defaultBaseUrl, existingModel, defaultProviderId));
 
     // Dual-endpoint mirror: write a cloud provider with the same models when asked.
     // Upsert cloud FIRST so a freshly inserted local entry stays above it.
     if (includeCloud) {
-      const cloudUrl = (cloudBaseUrl || CLI_TOOLS_CONFIG.cloudBaseUrl).endsWith("/v1")
-        ? (cloudBaseUrl || CLI_TOOLS_CONFIG.cloudBaseUrl)
-        : `${cloudBaseUrl || CLI_TOOLS_CONFIG.cloudBaseUrl}/v1`;
       const existingCloud = parseProviderEntry(existingYaml, CLOUD_PROVIDER_ID);
       newYaml = upsertProviderEntry(newYaml, buildProviderEntryYaml(cloudUrl, finalActive, modelsArray, existingCloud, CLOUD_PROVIDER_ID));
     } else if (parseProviderEntry(existingYaml, CLOUD_PROVIDER_ID)) {
@@ -302,12 +296,15 @@ export async function DELETE(request) {
       let newYaml = removeProviderEntry(yaml);
       newYaml = upsertProviderEntry(newYaml, buildProviderEntryYaml(url, finalActive, remaining, provider));
       const cloudEntry = parseProviderEntry(yaml, CLOUD_PROVIDER_ID);
+      // Keep the current default endpoint (cloud mirror when it was the default) on removal.
+      const activeProvider = model?.provider === CLOUD_PROVIDER_ID && cloudEntry ? CLOUD_PROVIDER_ID : PROVIDER_ID;
+      const activeUrl = activeProvider === CLOUD_PROVIDER_ID ? (providerUrl(cloudEntry, null) || "") : url;
       if (cloudEntry) {
         newYaml = removeProviderEntry(newYaml, CLOUD_PROVIDER_ID);
         const cloudUrl = providerUrl(cloudEntry, null) || "";
         newYaml = upsertProviderEntry(newYaml, buildProviderEntryYaml(cloudUrl, finalActive, remaining, cloudEntry, CLOUD_PROVIDER_ID));
       }
-      newYaml = upsertModelBlock(newYaml, buildModelBlock(finalActive, url, model));
+      newYaml = upsertModelBlock(newYaml, buildModelBlock(finalActive, activeUrl, model, activeProvider));
       await fs.writeFile(configPath, newYaml);
       return NextResponse.json({ success: true, message: `Model "${modelToRemove}" removed` });
     }

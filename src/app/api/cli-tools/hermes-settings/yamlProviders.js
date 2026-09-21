@@ -32,6 +32,21 @@ const parseModelsItem = (line) => {
   return dashed ? (rest || null) : null;
 };
 
+// Build the native-format model block. `provider` names the providers.<id> entry that resolves
+// key_env at runtime. Dual endpoint (includeCloud) targets 9router-cloud + its base_url so the
+// default model keeps working when the local server is off.
+export const buildModelBlock = (model, baseUrl, existingModel = null, providerId = PROVIDER_ID) => {
+  const apiMode = existingModel?.api_mode ? `  api_mode: ${existingModel.api_mode}\n` : "";
+  return (
+    `model:\n` +
+    `  default: "${model}"\n` +
+    `  provider: "${providerId}"\n` +
+    `  base_url: "${baseUrl}"\n` +
+    `  api_key: \${${API_KEY_ENV}}\n` +
+    apiMode
+  );
+};
+
 // Write the providers.9router entry the way Hermes itself persists it (base_url + models dict),
 // so a Hermes update / config migration never surprises us. `discover_models: false` is written
 // explicitly: Hermes defaults discovery to true and would otherwise repopulate the models dict

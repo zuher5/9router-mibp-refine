@@ -257,12 +257,14 @@ export default function HermesToolCard({
     const activeModelToShow = activeModel || modelsToShow[0];
 
     const yamlContent = (() => {
-      const cloudUrl = (includeCloud && (cloudBaseUrl.endsWith("/v1") ? cloudBaseUrl : `${cloudBaseUrl}/v1`));
+      const cloudUrl = includeCloud ? (cloudBaseUrl.endsWith("/v1") ? cloudBaseUrl : `${cloudBaseUrl}/v1`) : null;
+      const modelProviderId = includeCloud ? CLI_TOOLS_CONFIG.cloudProviderId : "9router";
+      const modelBaseUrl = includeCloud ? cloudUrl : getEffectiveBaseUrl();
       return [
         `model:`,
         `  default: "${activeModelToShow}"`,
-        `  provider: "9router"`,
-        `  base_url: "${getEffectiveBaseUrl()}"`,
+        `  provider: "${modelProviderId}"`,
+        `  base_url: "${modelBaseUrl}"`,
         `  api_key: \${OPENAI_API_KEY}`,
         `providers:`,
         `  9router:`,
@@ -403,8 +405,8 @@ export default function HermesToolCard({
                   <Toggle
                     checked={includeCloud}
                     onChange={setIncludeCloud}
-                    label="Also configure cloud (9router-cloud)"
-                    description="Writes a second provider pointing at your cloud 9router alongside the local one."
+                    label="Cloud default (Lokal + Cloud)"
+                    description="Writes 9router-cloud and makes it the default; local stays as a manual backup."
                   />
                 </div>
                 {includeCloud && (
