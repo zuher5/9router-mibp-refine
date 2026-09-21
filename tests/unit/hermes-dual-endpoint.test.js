@@ -1,30 +1,10 @@
-import { describe, it, expect, vi } from "vitest";
-
-const mocks = vi.hoisted(() => ({
-  exec: vi.fn(),
-  readFile: vi.fn(),
-  writeFile: vi.fn(),
-  mkdir: vi.fn(),
-  access: vi.fn(),
-}));
-
-vi.mock("child_process", () => ({ exec: mocks.exec }));
-vi.mock("fs/promises", () => ({
-  readFile: mocks.readFile,
-  writeFile: mocks.writeFile,
-  mkdir: mocks.mkdir,
-  access: mocks.access,
-}));
-
-const { __test__ } = await import(
-  "../../src/app/api/cli-tools/hermes-settings/route.js"
-);
-const {
+import { describe, it, expect } from "vitest";
+import {
   buildProviderEntryYaml,
   parseProviderEntry,
   upsertProviderEntry,
   removeProviderEntry,
-} = __test__;
+} from "../../src/app/api/cli-tools/hermes-settings/yamlProviders.js";
 
 const LOCAL = "http://127.0.0.1:20128/v1";
 const CLOUD = "https://9router.example.cloud/v1";
