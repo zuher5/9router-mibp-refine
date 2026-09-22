@@ -8,6 +8,10 @@ FROM base AS builder
 RUN apk --no-cache add python3 make g++ linux-headers
 
 COPY package.json package-lock.json ./
+# Fail fast with an actionable message if the lockfile was regenerated with
+# npm 11+ (drops the top-level @emnapi entries npm 10 requires). Without this,
+# `npm ci` still fails but with a cryptic "Missing: @emnapi/..." EUSAGE error.
+RUN node -e "const l=require('./package-lock.json');const p=l.packages||{};const miss=['node_modules/@emnapi/core','node_modules/@emnapi/runtime'].filter(k=>!p[k]);if(miss.length){console.error('LOCKFILE NOT npm-10-COMPATIBLE — missing: '+miss.join(', '));console.error('Regenerate with: npx -y npm@10.9.8 install --package-lock-only');console.error('See AGENTS.md §1.');process.exit(1)}"
 RUN --mount=type=cache,target=/root/.npm \
   npm ci
 
