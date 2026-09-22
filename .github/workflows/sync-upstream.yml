@@ -6,7 +6,25 @@ name: Sync upstream
 #                  Selalu dipaksa sama dengan upstream, jadi TIDAK MUNGKIN konflik.
 #                  Ini jaminan "update upstream selalu masuk ke fork".
 #   Job "merge"  : merge `upstream-mirror` -> `master` (branch kerja kamu).
-#                  Kalau konflik: TIDAK force-push, job gagal, dibuat issue untuk resolve manual.
+#                  Kalau konflik: TIDAK force-push, job gagal.
+#   Job "alert"  : jalan SELALU kalau mirror/merge gagal, buat/update issue.
+#                  Dipisah dari job merge karena `merge` ikut SKIPPED kalau
+#                  `mirror` gagal — dulu alert ada di `merge` sehingga kegagalan
+#                  mirror senyap total (terbukti 4 hari tanpa notifikasi).
+#
+# PUSH PAKAI `secrets.SYNC_PAT`, bukan GITHUB_TOKEN.
+# Alasan (kejadian 2026-09-19..22): GITHUB_TOKEN adalah token GitHub App dan
+# GitHub MENOLAK App token mengubah file di `.github/workflows/`:
+#   remote rejected (refusing to allow a GitHub App to create or update
+#   workflow `.github/workflows/docker-publish.yml` without `workflows` permission)
+# Blok `permissions:` TIDAK punya key `workflows`, jadi ini tidak bisa diperbaiki
+# dengan GITHUB_TOKEN. Sync macet di sana sampai upstream berhenti menyentuh
+# folder workflow — yang tidak akan pernah terjadi.
+#
+# SYARAT: secret `SYNC_PAT` berisi fine-grained PAT dengan
+#   Repository access : hanya zuher5/9router-mibp-refine
+#   Permissions       : Contents (read/write) + Workflows (read/write)
+# Set : gh secret set SYNC_PAT --repo zuher5/9router-mibp-refine
 #
 # Rantai fork: decolua/9router -> mhiqrambg/9router-mibp-version -> zuher5/9router-mibp-refine
 # Workflow ini hanya mengikuti base fork (mhiqrambg). Update dari decolua akan sampai
@@ -27,7 +45,7 @@ on:
         default: master
 
 permissions:
-  contents: write
+  contents: read
   issues: write
 
 concurrency:
@@ -39,9 +57,24 @@ jobs:
     if: github.repository == 'zuher5/9router-mibp-refine'
     runs-on: ubuntu-latest
     steps:
+      # persist-credentials: false WAJIB. Kalau true, checkout menulis
+      # `http.https://github.com/.extraheader` berisi GITHUB_TOKEN, dan header
+      # itu MENANG di atas kredensial PAT dari URL -> push tetap ditolak.
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           fetch-depth: 0
+          persist-credentials: false
+
+      - name: Pasang PAT untuk push
+        env:
+          SYNC_PAT: ${{ secrets.SYNC_PAT }}
+        run: |
+          set -euo pipefail
+          if [ -z "$SYNC_PAT" ]; then
+            echo "::error::Secret SYNC_PAT belum di-set. Buat fine-grained PAT (Contents + Workflows: read/write, hanya repo ini) lalu: gh secret set SYNC_PAT --repo ${GITHUB_REPOSITORY}"
+            exit 1
+          fi
+          git remote set-url origin "https://x-access-token:${SYNC_PAT}@github.com/${GITHUB_REPOSITORY}.git"
 
       - name: Mirror upstream -> upstream-mirror
         run: |
@@ -63,9 +96,23 @@ jobs:
       SOURCE: ${{ inputs.source || 'upstream-mirror' }}
       TARGET: ${{ inputs.target || 'master' }}
     steps:
+      # persist-credentials: false: semua push di job ini juga pakai PAT,
+      # karena hasil merge menyentuh .github/workflows/docker-publish.yml.
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
         with:
           fetch-depth: 0
+          persist-credentials: false
+
+      - name: Pasang PAT untuk push
+        env:
+          SYNC_PAT: ${{ secrets.SYNC_PAT }}
+        run: |
+          set -euo pipefail
+          if [ -z "$SYNC_PAT" ]; then
+            echo "::error::Secret SYNC_PAT belum di-set. Buat fine-grained PAT (Contents + Workflows: read/write, hanya repo ini) lalu: gh secret set SYNC_PAT --repo ${GITHUB_REPOSITORY}"
+            exit 1
+          fi
+          git remote set-url origin "https://x-access-token:${SYNC_PAT}@github.com/${GITHUB_REPOSITORY}.git"
 
       - name: Merge ${{ inputs.source || 'upstream-mirror' }} -> ${{ inputs.target || 'master' }}
         run: |
@@ -122,34 +169,71 @@ jobs:
             fi
           } >> "$GITHUB_STEP_SUMMARY"
 
-      - name: Buat / update issue kalau konflik
-        if: failure()
+  # Job alert terpisah: `needs` + if: always() supaya KESEGALANYA kegagalan
+  # (termasuk mirror, yang dulu membuat merge jadi skipped dan alert senyap)
+  # tetap memicu issue.
+  alert:
+    needs: [mirror, merge]
+    if: always() && (needs.mirror.result == 'failure' || needs.merge.result == 'failure')
+    runs-on: ubuntu-latest
+    permissions:
+      issues: write
+    env:
+      GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+      MIRROR_RESULT: ${{ needs.mirror.result }}
+      MERGE_RESULT: ${{ needs.merge.result }}
+      RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+    steps:
+      - name: Buat / update issue
         continue-on-error: true
-        env:
-          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
-          BODY: |
-            Auto-sync upstream **gagal karena konflik merge**. Tidak ada yang di-push — `master` tetap aman dan tidak disentuh.
-
-            Resolve manual di lokal:
-
-            ```powershell
-            cd C:\Users\Zuher\projects\9router-mibp-refine
-            git fetch origin --prune
-            git merge origin/upstream-mirror
-            # selesaikan konflik, lalu:
-            git add -A
-            git commit
-            git push origin master
-            ```
-
-            Setelah di-push, jalankan workflow ini lagi:
-            **Actions -> Sync upstream -> Run workflow**.
         run: |
           set -uo pipefail
-          gh label create upstream-sync --color FBCA04 --description "Konflik sync dari base fork" 2>/dev/null || true
-          N=$(gh issue list --label upstream-sync --state open --json number --jq '.[0].number // empty' 2>/dev/null || echo "")
-          if [ -n "$N" ]; then
-            gh issue comment "$N" --body "$BODY"
+
+          FAILED=""
+          if [ "$MIRROR_RESULT" = "failure" ]; then FAILED="mirror"; fi
+          if [ "$MERGE_RESULT" = "failure" ]; then FAILED="${FAILED:+$FAILED, }merge"; fi
+
+          if [ "$FAILED" = "mirror" ]; then
+            TITLE="Upstream sync gagal di job mirror (push ditolak / PAT bermasalah)"
+            BODY="Job **mirror** gagal — \`upstream-mirror\` TIDAK diperbarui, jadi update upstream tidak masuk sama sekali.
+
+          Kemungkinan penyebab:
+          - Secret \`SYNC_PAT\` belum di-set / sudah expired -> buat ulang fine-grained PAT (Contents + Workflows: read/write, hanya repo ini), lalu \`gh secret set SYNC_PAT --repo zuher5/9router-mibp-refine\`
+          - PAT tidak punya permission **Workflows** -> GitHub menolak push yang mengubah \`.github/workflows/*\`
+          - Base fork dihapus / jaringan
+
+          Cek log: $RUN_URL"
+          elif [ "$FAILED" = "merge" ]; then
+            TITLE="Upstream sync konflik (perlu resolve manual)"
+            BODY="Auto-sync upstream **gagal karena konflik merge**. Tidak ada yang di-push — \`master\` tetap aman dan tidak disentuh.
+
+          Resolve manual di lokal:
+
+          \`\`\`powershell
+          cd C:\\Users\\Zuher\\projects\\9router-mibp-refine
+          git fetch origin --prune
+          git merge origin/upstream-mirror
+          # selesaikan konflik, lalu:
+          git add -A
+          git commit
+          git push origin master
+          \`\`\`
+
+          Setelah di-push, jalankan workflow ini lagi:
+          **Actions -> Sync upstream -> Run workflow**.
+
+          Log: $RUN_URL"
           else
-            gh issue create --title "Upstream sync konflik (perlu resolve manual)" --body "$BODY" --label upstream-sync
+            TITLE="Upstream sync gagal ($FAILED)"
+            BODY="Job berikut gagal: **$FAILED**.
+
+          Log: $RUN_URL"
+          fi
+
+          gh label create upstream-sync --color FBCA04 --description "Sync dari base fork" -R "$GITHUB_REPOSITORY" 2>/dev/null || true
+          N=$(gh issue list --label upstream-sync --state open --json number --jq '.[0].number // empty' -R "$GITHUB_REPOSITORY" 2>/dev/null || echo "")
+          if [ -n "$N" ]; then
+            gh issue comment "$N" --body "$BODY" -R "$GITHUB_REPOSITORY"
+          else
+            gh issue create --title "$TITLE" --body "$BODY" --label upstream-sync -R "$GITHUB_REPOSITORY"
           fi
