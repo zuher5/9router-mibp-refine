@@ -13,8 +13,8 @@
     <img src="../public/providers/openclaw.png" alt="OpenClaw" width="80"/>
   </p>
   
-  [![npm](https://img.shields.io/npm/v/9router.svg)](https://www.npmjs.com/package/9router)
-  [![Downloads](https://img.shields.io/npm/dm/9router.svg)](https://www.npmjs.com/package/9router)
+  [![npm](https://img.shields.io/npm/v/9router.svg)](https://www.npmjs.com/package/9router-refine)
+  [![Downloads](https://img.shields.io/npm/dm/9router.svg)](https://www.npmjs.com/package/9router-refine)
   [![License](https://img.shields.io/npm/l/9router.svg)](https://github.com/decolua/9router/blob/main/LICENSE)
   
   [🚀 เริ่มต้นใช้งาน](#-quick-start) • [💡 ฟีเจอร์](#-key-features) • [📖 การตั้งค่า](#-setup-guide) • [🌐 เว็บไซต์](https://9router.com)
@@ -74,7 +74,7 @@
 **1. ติดตั้งแบบ Global:**
 
 ```bash
-npm install -g 9router
+npm install -g 9router-refine
 9router
 ```
 
@@ -700,7 +700,7 @@ Authorization: Bearer your-api-key
 
 - **เว็บไซต์**: [9router.com](https://9router.com)
 - **GitHub**: [github.com/decolua/9router](https://github.com/decolua/9router)
-- **Issues**: [github.com/decolua/9router/issues](https://github.com/decolua/9router/issues)
+- **Issues**: [github.com/zuher5/9router-mibp-refine/issues](https://github.com/zuher5/9router-mibp-refine/issues)
 
 ---
 

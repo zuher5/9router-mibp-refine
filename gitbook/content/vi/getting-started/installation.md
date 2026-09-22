@@ -34,7 +34,7 @@ npm --version
 Cài 9Router toàn cục để dùng ở bất kỳ đâu:
 
 ```bash
-npm install -g 9router
+npm install -g 9router-refine
 ```
 
 **Khởi động 9Router:**
@@ -74,7 +74,7 @@ npx 9router
 Clone và build từ GitHub:
 
 ```bash
-git clone https://github.com/decolua/9router.git
+git clone https://github.com/zuher5/9router-mibp-refine.git
 cd 9router/app
 npm install
 npm run build
@@ -283,7 +283,7 @@ echo 'export PATH=~/.npm-global/bin:$PATH' >> ~/.bashrc
 source ~/.bashrc
 
 # Then install again
-npm install -g 9router
+npm install -g 9router-refine
 ```
 
 ### Node.js Phiên bản quá cũ
@@ -372,7 +372,7 @@ pm2 save
 ### Phát triển cục bộ
 
 ```bash
-npm install -g 9router
+npm install -g 9router-refine
 9router
 ```
 
@@ -382,7 +382,7 @@ npm install -g 9router
 
 ```bash
 # Install
-npm install -g 9router
+npm install -g 9router-refine
 
 # Configure
 export JWT_SECRET="your-secure-secret"
@@ -444,7 +444,7 @@ server {
 ### Gỡ Global Installation
 
 ```bash
-npm uninstall -g 9router
+npm uninstall -g 9router-refine
 ```
 
 ### Xóa Data Directory
@@ -475,4 +475,4 @@ nano ~/.bashrc  # or ~/.zshrc
 
 - **Website**: [9router.com](https://9router.com)
 - **GitHub**: [github.com/decolua/9router](https://github.com/decolua/9router)
-- **Issues**: [github.com/decolua/9router/issues](https://github.com/decolua/9router/issues)
+- **Issues**: [github.com/zuher5/9router-mibp-refine/issues](https://github.com/zuher5/9router-mibp-refine/issues)

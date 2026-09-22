@@ -9,7 +9,7 @@
 ### 1. 安装
 
 ```bash
-npm install -g 9router
+npm install -g 9router-refine
 ```
 
 **要求:** Node.js 20+([安装详情](getting-started/installation.md))
@@ -244,4 +244,4 @@ CLI 中使用: premium-coding
 
 - **网站**: [9router.com](https://9router.com)
 - **GitHub**: [github.com/decolua/9router](https://github.com/decolua/9router)
-- **Issues**: [github.com/decolua/9router/issues](https://github.com/decolua/9router/issues)
+- **Issues**: [github.com/zuher5/9router-mibp-refine/issues](https://github.com/zuher5/9router-mibp-refine/issues)

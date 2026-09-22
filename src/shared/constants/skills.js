@@ -1,7 +1,9 @@
 // Agent Skills metadata — single source of truth for /dashboard/skills page.
 // Each skill = 1 raw GitHub URL the user copies and pastes to any AI agent.
 
-const REPO = "decolua/9router";
+// Fork: skill harus diambil dari repo ini, bukan upstream — URL mentah di
+// halaman /dashboard/skills disalin pengguna apa adanya ke agent mereka.
+const REPO = "zuher5/9router-mibp-refine";
 const BRANCH = "master";
 const SKILL_PATH = "skills";
 

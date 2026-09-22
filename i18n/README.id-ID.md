@@ -7,8 +7,8 @@
 
   **Hubungkan semua tool AI coding (Claude Code, Cursor, Antigravity, Copilot, Codex, Gemini, OpenCode, Cline, OpenClaw...) ke 40+ provider AI dan 100+ model.**
 
-  [![npm](https://img.shields.io/npm/v/9router.svg)](https://www.npmjs.com/package/9router)
-  [![Downloads](https://img.shields.io/npm/dm/9router.svg)](https://www.npmjs.com/package/9router)
+  [![npm](https://img.shields.io/npm/v/9router.svg)](https://www.npmjs.com/package/9router-refine)
+  [![Downloads](https://img.shields.io/npm/dm/9router.svg)](https://www.npmjs.com/package/9router-refine)
   [![License](https://img.shields.io/npm/l/9router.svg)](https://github.com/decolua/9router/blob/main/LICENSE)
 
   [🚀 Mulai Cepat](#-mulai-cepat) • [💡 Fitur](#-fitur-utama) • [📖 Setup](#-panduan-setup) • [🌐 Website](https://9router.com)
@@ -68,7 +68,7 @@ Hasil: ngoding tanpa berhenti, biaya minimum
 **1. Install secara global:**
 
 ```bash
-npm install -g 9router
+npm install -g 9router-refine
 9router
 ```
 
@@ -876,7 +876,7 @@ docker run -d \
   -v 9router-data:/app/data \
   -e PORT=20128 \
   -e BASE_URL=http://localhost:20128 \
-  ghcr.io/decolua/9router:latest
+  ghcr.io/zuher5/9router-mibp-refine:latest
 ```
 
 Dashboard: `http://localhost:20128/dashboard`
@@ -887,7 +887,7 @@ Dashboard: `http://localhost:20128/dashboard`
 <summary><b>VPS / Cloud</b></summary>
 
 ```bash
-npm install -g 9router
+npm install -g 9router-refine
 PORT=20128 HOSTNAME=0.0.0.0 BASE_URL=https://your-domain.com 9router
 ```
 
@@ -946,6 +946,6 @@ MIT License — lihat [LICENSE](https://github.com/decolua/9router/blob/main/LIC
 
 **Kalau 9Router membantumu, kasih ⭐ di [GitHub](https://github.com/decolua/9router)!**
 
-[🌐 Website](https://9router.com) • [📦 npm](https://www.npmjs.com/package/9router) • [🐛 Laporkan Bug](https://github.com/decolua/9router/issues)
+[🌐 Website](https://9router.com) • [📦 npm](https://www.npmjs.com/package/9router-refine) • [🐛 Laporkan Bug](https://github.com/zuher5/9router-mibp-refine/issues)
 
 </div>

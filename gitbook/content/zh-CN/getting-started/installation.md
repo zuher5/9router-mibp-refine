@@ -34,7 +34,7 @@ npm --version
 全局安装,任何位置都能使用:
 
 ```bash
-npm install -g 9router
+npm install -g 9router-refine
 ```
 
 **启动 9Router:**
@@ -74,7 +74,7 @@ npx 9router
 从 GitHub 克隆并构建:
 
 ```bash
-git clone https://github.com/decolua/9router.git
+git clone https://github.com/zuher5/9router-mibp-refine.git
 cd 9router/app
 npm install
 npm run build
@@ -283,7 +283,7 @@ echo 'export PATH=~/.npm-global/bin:$PATH' >> ~/.bashrc
 source ~/.bashrc
 
 # 然后重新安装
-npm install -g 9router
+npm install -g 9router-refine
 ```
 
 ### Node.js 版本过低
@@ -372,7 +372,7 @@ pm2 save
 ### 本地开发
 
 ```bash
-npm install -g 9router
+npm install -g 9router-refine
 9router
 ```
 
@@ -382,7 +382,7 @@ npm install -g 9router
 
 ```bash
 # 安装
-npm install -g 9router
+npm install -g 9router-refine
 
 # 配置
 export JWT_SECRET="your-secure-secret"
@@ -444,7 +444,7 @@ server {
 ### 移除全局安装
 
 ```bash
-npm uninstall -g 9router
+npm uninstall -g 9router-refine
 ```
 
 ### 移除数据目录
@@ -475,4 +475,4 @@ nano ~/.bashrc  # 或 ~/.zshrc
 
 - **网站**: [9router.com](https://9router.com)
 - **GitHub**: [github.com/decolua/9router](https://github.com/decolua/9router)
-- **Issues**: [github.com/decolua/9router/issues](https://github.com/decolua/9router/issues)
+- **Issues**: [github.com/zuher5/9router-mibp-refine/issues](https://github.com/zuher5/9router-mibp-refine/issues)

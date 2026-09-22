@@ -172,7 +172,7 @@ Cursor Settings → Models → Advanced:
 **替代方案:** 在 VPS 上自托管,使用公开域名:
 ```bash
 # 部署到 VPS
-git clone https://github.com/decolua/9router.git
+git clone https://github.com/zuher5/9router-mibp-refine.git
 cd 9router/app
 npm install && npm run build
 npm start
@@ -198,7 +198,7 @@ npm start
 
 ### Localhost(默认)
 ```bash
-npm install -g 9router
+npm install -g 9router-refine
 9router
 → 仪表盘: http://localhost:3000
 → API: http://localhost:20128/v1
@@ -206,7 +206,7 @@ npm install -g 9router
 
 ### VPS/云
 ```bash
-git clone https://github.com/decolua/9router.git
+git clone https://github.com/zuher5/9router-mibp-refine.git
 cd 9router/app
 npm install && npm run build
 
@@ -329,7 +329,7 @@ docker run -d \
 ### 贡献方式:
 
 1. **报告 bug:**
-   - [GitHub Issues](https://github.com/decolua/9router/issues)
+   - [GitHub Issues](https://github.com/zuher5/9router-mibp-refine/issues)
    - 附上错误日志、复现步骤
 
 2. **功能请求:**
@@ -383,5 +383,5 @@ docker run -d \
 
 - **文档:** [9router.com/docs](https://9router.com/docs)
 - **GitHub:** [github.com/decolua/9router](https://github.com/decolua/9router)
-- **Issues:** [github.com/decolua/9router/issues](https://github.com/decolua/9router/issues)
+- **Issues:** [github.com/zuher5/9router-mibp-refine/issues](https://github.com/zuher5/9router-mibp-refine/issues)
 - **故障排除:** [troubleshooting.md](troubleshooting.md)

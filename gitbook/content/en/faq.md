@@ -172,7 +172,7 @@ Cursor Settings → Models → Advanced:
 **Alternative:** Self-host on VPS with public domain:
 ```bash
 # Deploy to VPS
-git clone https://github.com/decolua/9router.git
+git clone https://github.com/zuher5/9router-mibp-refine.git
 cd 9router/app
 npm install && npm run build
 npm start
@@ -198,7 +198,7 @@ See [Cursor integration guide](integration/cursor.md) for details.
 
 ### Localhost (Default)
 ```bash
-npm install -g 9router
+npm install -g 9router-refine
 9router
 → Dashboard: http://localhost:3000
 → API: http://localhost:20128/v1
@@ -206,7 +206,7 @@ npm install -g 9router
 
 ### VPS/Cloud
 ```bash
-git clone https://github.com/decolua/9router.git
+git clone https://github.com/zuher5/9router-mibp-refine.git
 cd 9router/app
 npm install && npm run build
 
@@ -329,7 +329,7 @@ docker run -d \
 ### Ways to contribute:
 
 1. **Report bugs:**
-   - [GitHub Issues](https://github.com/decolua/9router/issues)
+   - [GitHub Issues](https://github.com/zuher5/9router-mibp-refine/issues)
    - Include error logs, steps to reproduce
 
 2. **Request features:**
@@ -383,5 +383,5 @@ See [CONTRIBUTING.md](https://github.com/decolua/9router/blob/main/CONTRIBUTING.
 
 - **Documentation:** [9router.com/docs](https://9router.com/docs)
 - **GitHub:** [github.com/decolua/9router](https://github.com/decolua/9router)
-- **Issues:** [github.com/decolua/9router/issues](https://github.com/decolua/9router/issues)
+- **Issues:** [github.com/zuher5/9router-mibp-refine/issues](https://github.com/zuher5/9router-mibp-refine/issues)
 - **Troubleshooting:** [troubleshooting.md](troubleshooting.md)

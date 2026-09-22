@@ -34,7 +34,7 @@ npm --version
 Install 9Router globally to use from anywhere:
 
 ```bash
-npm install -g 9router
+npm install -g 9router-refine
 ```
 
 **Start 9Router:**
@@ -74,7 +74,7 @@ npx 9router
 Clone and build from GitHub:
 
 ```bash
-git clone https://github.com/decolua/9router.git
+git clone https://github.com/zuher5/9router-mibp-refine.git
 cd 9router/app
 npm install
 npm run build
@@ -283,7 +283,7 @@ echo 'export PATH=~/.npm-global/bin:$PATH' >> ~/.bashrc
 source ~/.bashrc
 
 # Then install again
-npm install -g 9router
+npm install -g 9router-refine
 ```
 
 ### Node.js Version Too Old
@@ -372,7 +372,7 @@ pm2 save
 ### Local Development
 
 ```bash
-npm install -g 9router
+npm install -g 9router-refine
 9router
 ```
 
@@ -382,7 +382,7 @@ npm install -g 9router
 
 ```bash
 # Install
-npm install -g 9router
+npm install -g 9router-refine
 
 # Configure
 export JWT_SECRET="your-secure-secret"
@@ -444,7 +444,7 @@ server {
 ### Remove Global Installation
 
 ```bash
-npm uninstall -g 9router
+npm uninstall -g 9router-refine
 ```
 
 ### Remove Data Directory
@@ -475,4 +475,4 @@ nano ~/.bashrc  # or ~/.zshrc
 
 - **Website**: [9router.com](https://9router.com)
 - **GitHub**: [github.com/decolua/9router](https://github.com/decolua/9router)
-- **Issues**: [github.com/decolua/9router/issues](https://github.com/decolua/9router/issues)
+- **Issues**: [github.com/zuher5/9router-mibp-refine/issues](https://github.com/zuher5/9router-mibp-refine/issues)

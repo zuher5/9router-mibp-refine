@@ -34,7 +34,7 @@ npm --version
 どこからでも使用できるように9Routerをグローバルインストール:
 
 ```bash
-npm install -g 9router
+npm install -g 9router-refine
 ```
 
 **9Routerを起動:**
@@ -74,7 +74,7 @@ npx 9router
 GitHubからクローンしてビルド:
 
 ```bash
-git clone https://github.com/decolua/9router.git
+git clone https://github.com/zuher5/9router-mibp-refine.git
 cd 9router/app
 npm install
 npm run build
@@ -283,7 +283,7 @@ echo 'export PATH=~/.npm-global/bin:$PATH' >> ~/.bashrc
 source ~/.bashrc
 
 # 再度インストール
-npm install -g 9router
+npm install -g 9router-refine
 ```
 
 ### Node.jsバージョンが古すぎる
@@ -372,7 +372,7 @@ pm2 save
 ### ローカル開発
 
 ```bash
-npm install -g 9router
+npm install -g 9router-refine
 9router
 ```
 
@@ -382,7 +382,7 @@ npm install -g 9router
 
 ```bash
 # インストール
-npm install -g 9router
+npm install -g 9router-refine
 
 # 設定
 export JWT_SECRET="your-secure-secret"
@@ -444,7 +444,7 @@ server {
 ### グローバルインストールを削除
 
 ```bash
-npm uninstall -g 9router
+npm uninstall -g 9router-refine
 ```
 
 ### データディレクトリを削除
@@ -475,4 +475,4 @@ nano ~/.bashrc  # または ~/.zshrc
 
 - **ウェブサイト**: [9router.com](https://9router.com)
 - **GitHub**: [github.com/decolua/9router](https://github.com/decolua/9router)
-- **Issues**: [github.com/decolua/9router/issues](https://github.com/decolua/9router/issues)
+- **Issues**: [github.com/zuher5/9router-mibp-refine/issues](https://github.com/zuher5/9router-mibp-refine/issues)

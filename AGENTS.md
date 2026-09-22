@@ -16,9 +16,11 @@
 **DO NOT** regenerate `package-lock.json` with your global `npm` (npm 11+).
 **DO NOT** delete `package-lock.json` or add it to `.gitignore`.
 
-**WHY:** The Docker image pins `node:22-alpine` by digest (see `Dockerfile`
-`ARG NODE_IMAGE`), which ships **npm 10.9.8**. The `Dockerfile` runs `npm ci`
-against the committed lockfile. npm 11 **drops the top-level optional entries**
+**WHY:** The `Dockerfile` runs `npm ci` against the committed lockfile. The base
+image (`ARG NODE_IMAGE`) is deliberately **unpinned** in this fork — the
+Blitz.cloud build needs a floating `node:22-alpine` (see §5) — so the npm
+version it ships can drift; what must hold is that the lockfile itself stays
+npm-10-compatible. npm 11 **drops the top-level optional entries**
 `@emnapi/core` and `@emnapi/runtime` that npm 10's platform-complete resolve
 requires. The tag-triggered **"Build and Push Docker Image"** workflow then
 fails at `npm ci`:
@@ -126,7 +128,7 @@ re-verify after.
 |---|---|
 | **Freebuff provider** | `open-sse/executors/freebuff.js`, `open-sse/providers/registry/freebuff.js`, `open-sse/services/usage/freebuff.js`, `src/lib/oauth/providers/freebuff.js`, `public/providers/freebuff.png`, and its entries in `open-sse/executors/index.js` + `open-sse/providers/registry/index.js` |
 | **Proxy-pool fitness** | `open-sse/services/proxyPoolFitness.js`, `open-sse/services/poolGeo.js`, `src/lib/network/poolEgressProbe.js`, `src/lib/network/stateSweeper.js`, `src/app/(dashboard)/dashboard/proxy-fitness/`, `src/app/api/proxy-pools/**` |
-| **Docker hardening** | `Dockerfile`: digest-pinned `NODE_IMAGE`, tracked `package-lock.json`, `npm ci`, `HEALTHCHECK`. `.github/workflows/docker-publish.yml`. |
+| **Docker hardening** | `Dockerfile`: tracked `package-lock.json`, `npm ci`, lockfile guard, `HEALTHCHECK` — `NODE_IMAGE` intentionally **unpinned** in this fork for the Blitz.cloud build (see §1). `.github/workflows/docker-publish.yml`. |
 | **dompurify security override** | `package.json` `overrides.dompurify` + the direct `dompurify` dependency |
 | **MIBP branding** | `README.md`, `docker-compose.yml`, `.env.example`, the `MIBP Edition` link in `src/app/(dashboard)/dashboard/profile/page.js` |
 | **Cline free-tier models** | `open-sse/providers/registry/cline.js` `authModes: ["oauth","apikey"]` + `cline-free/*` models; `open-sse/shared/clineAuth.js` product headers |
