@@ -128,10 +128,15 @@ jobs:
             exit 0
           fi
 
+          # sed, BUKAN head: dengan `set -o pipefail`, head menutup pipe lebih
+          # awal lalu git log kena SIGPIPE -> exit 141 -> step gagal SEBELUM
+          # merge dijalankan. Kejadian 2026-09-22: 86 commit upstream, `head -50`
+          # meledak dan membatalkan merge yang sebenarnya bersih.
+          # `|| true`: ini keluaran informatif, tidak boleh membatalkan merge.
           echo "=== commit yang akan masuk ==="
-          git log --oneline --no-decorate "HEAD..origin/$SOURCE" | head -50
+          git log --oneline --no-decorate "HEAD..origin/$SOURCE" | sed -n '1,50p' || true
           echo "=== file yang berubah ==="
-          git diff --stat "HEAD" "origin/$SOURCE" | tail -40
+          git diff --stat "HEAD" "origin/$SOURCE" | tail -40 || true
 
           if git merge --no-ff "origin/$SOURCE" -m "chore(sync): merge upstream $(git rev-parse --short "origin/$SOURCE")"; then
             git push origin "HEAD:refs/heads/$TARGET"
@@ -172,9 +177,14 @@ jobs:
   # Job alert terpisah: `needs` + if: always() supaya KESEGALANYA kegagalan
   # (termasuk mirror, yang dulu membuat merge jadi skipped dan alert senyap)
   # tetap memicu issue.
+  #
+  # if: always() tanpa syarat kegagalan, supaya job ini juga jalan saat sync
+  # SUKSES -> bisa menutup issue yang sudah tidak relevan. Kalau dibatasi
+  # kegagalan saja, issue yang pernah terbit akan tetap open selamanya walau
+  # sync sudah hijau.
   alert:
     needs: [mirror, merge]
-    if: always() && (needs.mirror.result == 'failure' || needs.merge.result == 'failure')
+    if: always()
     runs-on: ubuntu-latest
     permissions:
       issues: write
@@ -192,6 +202,21 @@ jobs:
           FAILED=""
           if [ "$MIRROR_RESULT" = "failure" ]; then FAILED="mirror"; fi
           if [ "$MERGE_RESULT" = "failure" ]; then FAILED="${FAILED:+$FAILED, }merge"; fi
+
+          gh label create upstream-sync --color FBCA04 --description "Sync dari base fork" -R "$GITHUB_REPOSITORY" 2>/dev/null || true
+          N=$(gh issue list --label upstream-sync --state open --json number --jq '.[0].number // empty' -R "$GITHUB_REPOSITORY" 2>/dev/null || echo "")
+
+          # Sync sukses -> tutup issue lama. Tanpa cabang ini, satu kegagalan
+          # akan membuat issue open selamanya walau sync berikutnya sudah hijau.
+          if [ -z "$FAILED" ]; then
+            if [ -n "$N" ]; then
+              gh issue close "$N" --comment "Sync upstream pulih: \`mirror\` dan \`merge\` sama-sama sukses pada run ini.
+
+          Log: $RUN_URL" -R "$GITHUB_REPOSITORY"
+            fi
+            echo "Tidak ada kegagalan — tidak ada issue yang perlu dibuat."
+            exit 0
+          fi
 
           if [ "$FAILED" = "mirror" ]; then
             TITLE="Upstream sync gagal di job mirror (push ditolak / PAT bermasalah)"
@@ -230,10 +255,12 @@ jobs:
           Log: $RUN_URL"
           fi
 
-          gh label create upstream-sync --color FBCA04 --description "Sync dari base fork" -R "$GITHUB_REPOSITORY" 2>/dev/null || true
-          N=$(gh issue list --label upstream-sync --state open --json number --jq '.[0].number // empty' -R "$GITHUB_REPOSITORY" 2>/dev/null || echo "")
           if [ -n "$N" ]; then
             gh issue comment "$N" --body "$BODY" -R "$GITHUB_REPOSITORY"
+            # Sinkronkan judul: issue yang sama bisa menerima kegagalan yang
+            # BERBEDA di run berikutnya (mirror -> konflik). Judul lama jadi
+            # menyesatkan kalau tidak ikut diperbarui.
+            gh issue edit "$N" --title "$TITLE" -R "$GITHUB_REPOSITORY"
           else
             gh issue create --title "$TITLE" --body "$BODY" --label upstream-sync -R "$GITHUB_REPOSITORY"
           fi
