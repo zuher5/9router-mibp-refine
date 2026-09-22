@@ -7,12 +7,33 @@ A local AI routing gateway with provider fallback and token-saving features. Thi
 - **Hermes Agent multi-model integration** — models picked in the dashboard flow natively into `~/.hermes/config.yaml` as a `providers.9router` block (`models[]`, `default_model`, `key_env`), with an **Add / Remove / Set-Active model** menu in the 9router TUI and a multi-model card in the dashboard.
 - **OpenCode V2 integration** — native `providers.9router` route for OpenCode configs (models[], activeModel, subagent model).
 - **One-shot installer** — a fresh machine goes from zero to a running dashboard with one command (below).
+- **npm global install** — `npm install -g 9router-refine` ships the pre-built CLI launcher, same flow as the original `9router` package.
 
 ## Installation
 
 Requires Node.js 22 or newer.
 
-### Option 1: One-shot installer (recommended)
+### Option 1: npm global install (recommended)
+
+Same experience as the original `9router` package: one command, then a TUI launcher with Web UI, Terminal UI, tray, and auto-update.
+
+```bash
+npm install -g 9router-refine
+9router-refine
+```
+
+`9router` also works as a shorter alias:
+
+```bash
+9router
+```
+
+Dashboard opens at `http://localhost:20128/dashboard`. The published package contains the pre-built Next.js standalone bundle, so no `npm run build` is needed on your machine.
+
+- Update: `npm i -g 9router-refine@latest`
+- Uninstall: `npm uninstall -g 9router-refine`
+
+### Option 2: One-shot installer
 
 #### Windows (PowerShell)
 
@@ -33,7 +54,7 @@ What the installer does: clones the repo into `./9router` (if you're not already
 - Stop the server with `Ctrl+C`. For background/auto-start, run the standalone build under PM2/systemd/Task Scheduler — see [docs/ARCHITECTURE.md](docs/ARCHITECTURE.md).
 - Data (database, machine-id, CLI secrets) lives in `%APPDATA%\9router` (Windows) or `~/.9router` (Linux/macOS); override with `DATA_DIR`.
 
-### Option 2: Git clone (manual, from source)
+### Option 3: Git clone (manual, from source)
 
 ```bash
 git clone https://github.com/zuher5/9router-mibp-refine.git
@@ -69,7 +90,7 @@ node .next\standalone\custom-server.js
 
 Dashboard opens at `http://localhost:20128/dashboard` — log in with the `INITIAL_PASSWORD` you set (change it from the dashboard after first login). For a dev server with hot reload instead, run `npm run dev` (serves on port 20127).
 
-### Option 3: Docker (build from this repo)
+### Option 4: Docker (build from this repo)
 
 Build the image locally (no prebuilt image is published — build from source so the image always matches this fork):
 

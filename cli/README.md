@@ -1,18 +1,20 @@
-# 9Router - FREE AI Router & Token Saver
+# 9Router Refine - FREE AI Router & Token Saver
+
+**Refined fork of [9Router](https://github.com/decolua/9router)** — adds Hermes Agent multi-model integration and OpenCode V2 config routes.
 
 **Never stop coding. Save 20-40% tokens with RTK + auto-fallback to FREE & cheap AI models.**
 
 **Connect All AI Code Tools (Claude Code, Cursor, Antigravity, Copilot, Codex, Gemini, OpenCode, Cline, OpenClaw...) to 40+ AI Providers & 100+ Models.**
 
-[![npm](https://img.shields.io/npm/v/9router.svg)](https://www.npmjs.com/package/9router)
-[![Downloads](https://img.shields.io/npm/dm/9router.svg)](https://www.npmjs.com/package/9router)
+[![npm](https://img.shields.io/npm/v/9router-refine.svg)](https://www.npmjs.com/package/9router-refine)
+[![Downloads](https://img.shields.io/npm/dm/9router-refine.svg)](https://www.npmjs.com/package/9router-refine)
 [![Docker Pulls](https://img.shields.io/docker/pulls/decolua/9router.svg?logo=docker&label=Docker%20pulls)](https://hub.docker.com/r/decolua/9router)
 [![GHCR](https://img.shields.io/badge/GHCR-decolua%2F9router-blue?logo=github)](https://github.com/decolua/9router/pkgs/container/9router)
 [![License](https://img.shields.io/npm/l/9router.svg)](https://github.com/decolua/9router/blob/main/LICENSE)
 
 <a href="https://trendshift.io/repositories/22628" target="_blank"><img src="https://trendshift.io/api/badge/repositories/22628" alt="decolua%2F9router | Trendshift" style="width: 250px; height: 55px;" width="250" height="55"/></a>
 
-[🌐 Website](https://9router.com) • [📖 Full Docs](https://github.com/decolua/9router)
+[🌐 Website](https://9router.com) • [📖 Fork Docs](https://github.com/zuher5/9router-mibp-refine)
 
 ---
 
@@ -40,11 +42,11 @@
 **Option 1 — npm (recommended for desktop):**
 
 ```bash
-npm install -g 9router
-9router
+npm install -g 9router-refine
+9router-refine     # or just: 9router
 
 # Or run directly with npx
-npx 9router
+npx 9router-refine
 ```
 
 **Option 2 — Docker (server/VPS):**
@@ -79,12 +81,14 @@ That's it! Start coding with FREE AI models.
 ## 🚀 CLI Options
 
 ```bash
-9router                    # Start with default settings
-9router --port 8080        # Custom port
-9router --no-browser       # Don't open browser
-9router --skip-update      # Skip auto-update check
-9router --help             # Show all options
+9router-refine              # Start with default settings
+9router-refine --port 8080  # Custom port
+9router-refine --no-browser # Don't open browser
+9router-refine --skip-update# Skip auto-update check
+9router-refine --help       # Show all options
 ```
+
+`9router` works as a shorter alias for every command above.
 
 **Dashboard**: `http://localhost:20128/dashboard`
 
@@ -110,9 +114,9 @@ Any tool supporting OpenAI/Claude-compatible API works.
 
 Full docs, advanced setup, video tutorials & development guide:
 
-- **GitHub**: https://github.com/decolua/9router
-- **Full README**: https://github.com/decolua/9router/blob/main/app/README.md
-- **Website**: https://9router.com
+- **Fork GitHub**: https://github.com/zuher5/9router-mibp-refine
+- **Upstream README**: https://github.com/decolua/9router/blob/main/app/README.md
+- **Upstream website**: https://9router.com
 
 ---
 
