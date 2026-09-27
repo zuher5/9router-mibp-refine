@@ -134,7 +134,7 @@ docker build \
 
 Push a git tag `v*` → GitHub Actions builds multi-platform (amd64+arm64) and pushes to:
 - `ghcr.io/zuher5/9router-mibp-refine:v{version}` + `:latest`
-- Docker Hub `mhiqrambhrng/9router-mibp-version` — only when the `DOCKERHUB_USERNAME` / `DOCKERHUB_TOKEN` secrets are set. Without them the Docker Hub login step fails the whole run (`Username and password required`), even though the GHCR login is fine.
+- Docker Hub `<username>/9router-mibp-refine` (via `DOCKERHUB_USERNAME` secret) — only when the `DOCKERHUB_USERNAME` / `DOCKERHUB_TOKEN` secrets are set. Without them Docker Hub publishing is skipped and only GHCR is published.
 
 ```bash
 # Tag and push to trigger automated build and publish
