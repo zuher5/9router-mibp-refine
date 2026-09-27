@@ -1,4 +1,4 @@
-# 9Router MIBP Refine
+# 9Router MIBR Refine
 
 A local AI routing gateway with provider fallback and token-saving features. This is a refined fork of [mhiqrambg/9router-mibp-version](https://github.com/mhiqrambg/9router-mibp-version), itself a fork of [decolua/9router](https://github.com/decolua/9router).
 
@@ -92,7 +92,7 @@ Dashboard opens at `http://localhost:20128/dashboard` — log in with the `INITI
 
 ### Option 4: Docker (build from this repo)
 
-Build the image locally (no prebuilt image is published — build from source so the image always matches this fork):
+Build the image locally (or use prebuilt releases published to GHCR on tagged versions):
 
 ```bash
 git clone https://github.com/zuher5/9router-mibp-refine.git

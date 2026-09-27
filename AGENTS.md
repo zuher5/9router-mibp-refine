@@ -130,14 +130,14 @@ re-verify after.
 | **Proxy-pool fitness** | `open-sse/services/proxyPoolFitness.js`, `open-sse/services/poolGeo.js`, `src/lib/network/poolEgressProbe.js`, `src/lib/network/stateSweeper.js`, `src/app/(dashboard)/dashboard/proxy-fitness/`, `src/app/api/proxy-pools/**` |
 | **Docker hardening** | `Dockerfile`: tracked `package-lock.json`, `npm ci`, lockfile guard, `HEALTHCHECK` — `NODE_IMAGE` intentionally **unpinned** in this fork for the Blitz.cloud build (see §1). `.github/workflows/docker-publish.yml`. |
 | **dompurify security override** | `package.json` `overrides.dompurify` + the direct `dompurify` dependency |
-| **MIBP branding** | `README.md`, `docker-compose.yml`, `.env.example`, the `MIBP Edition` link in `src/app/(dashboard)/dashboard/profile/page.js` |
+| **MIBR branding** | `README.md`, and the `MIBR Edition` links in `src/shared/components/Header.js`, `src/shared/components/Sidebar.js`, `src/app/(dashboard)/dashboard/profile/page.js` |
 | **Cline free-tier models** | `open-sse/providers/registry/cline.js` `authModes: ["oauth","apikey"]` + `cline-free/*` models; `open-sse/shared/clineAuth.js` product headers |
 
 ---
 
 ## 6. Upstream sync procedure
 
-- Remote layout: `origin` = this fork, `upstream` = `decolua/9router`.
+- Remote layout: `origin` = this fork (`zuher5/9router-mibp-refine`), `upstream` = base fork `mhiqrambg/9router-mibp-version` (synced via `.github/workflows/sync-upstream.yml`; upstream `decolua/9router` is base fork's upstream).
 - **Merge, do not rebase** — the fork already has merge-based history; rebasing
   rewrites public history.
 - Work on a branch (`sync/upstream-<ver>`), tag a rollback point
