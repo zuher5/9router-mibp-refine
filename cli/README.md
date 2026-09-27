@@ -10,7 +10,7 @@
 [![Downloads](https://img.shields.io/npm/dm/9router-refine.svg)](https://www.npmjs.com/package/9router-refine)
 [![Docker Pulls](https://img.shields.io/docker/pulls/mhiqrambhrng/9router-mibp-version.svg?logo=docker&label=Docker%20pulls)](https://hub.docker.com/r/mhiqrambhrng/9router-mibp-version)
 [![GHCR](https://img.shields.io/badge/GHCR-zuher5%2F9router--mibp--refine-blue?logo=github)](https://github.com/zuher5/9router-mibp-refine/pkgs/container/9router-mibp-refine)
-[![License](https://img.shields.io/npm/l/9router.svg)](https://github.com/decolua/9router/blob/main/LICENSE)
+[![License](https://img.shields.io/npm/l/9router-refine.svg)](https://github.com/zuher5/9router-mibp-refine/blob/master/LICENSE)
 
 <a href="https://trendshift.io/repositories/22628" target="_blank"><img src="https://trendshift.io/api/badge/repositories/22628" alt="decolua%2F9router | Trendshift" style="width: 250px; height: 55px;" width="250" height="55"/></a>
 

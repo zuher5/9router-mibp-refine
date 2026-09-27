@@ -122,11 +122,8 @@ Push a git tag `v*` → GitHub Actions builds multi-platform (amd64+arm64) and p
 - Docker Hub `mhiqrambhrng/9router-mibp-version` — only when the `DOCKERHUB_USERNAME` / `DOCKERHUB_TOKEN` secrets are set. Without them the Docker Hub login step fails the whole run (`Username and password required`), even though the GHCR login is fine.
 
 ```bash
-# Use scripts/release.js (recommended)
-node scripts/release.js "Release title" "Notes"
-
-# Or manually
-git tag v0.4.x && git push origin v0.4.x
+# Tag and push to trigger automated build and publish
+git tag v1.0.x && git push origin v1.0.x
 ```
 
 Workflow: `.github/workflows/docker-publish.yml`

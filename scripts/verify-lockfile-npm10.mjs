@@ -5,7 +5,7 @@
  * GUARD — DO NOT DELETE.
  *
  * Why this exists (root cause, 2026-09-19):
- *   The Docker image pins `node:22-alpine` by digest, which ships npm 10.9.8.
+ *   The Docker image uses `node:22-alpine` (floating per AGENTS.md §5), shipping npm 10.9.8.
  *   The repo's `package-lock.json` is tracked (upstream does NOT track it) and
  *   the Dockerfile runs `npm ci`. If the lockfile is regenerated with npm 11+,
  *   npm 11 DROPS the top-level optional entries `@emnapi/core` and
