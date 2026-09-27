@@ -10,15 +10,16 @@ concurrency:
   group: docker-build-${{ github.ref }}
   cancel-in-progress: true
 
+env:
+  GHCR_IMAGE: ghcr.io/${{ github.repository }}
+  DOCKERHUB_IMAGE: ${{ github.repository_owner }}/9router-mibp-refine
+
 jobs:
   build-and-push:
     runs-on: ubuntu-latest
     permissions:
       contents: read
       packages: write
-    env:
-      GHCR_IMAGE: ghcr.io/${{ github.repository }}
-      DOCKERHUB_IMAGE: ${{ secrets.DOCKERHUB_USERNAME != '' && format('{0}/9router-mibp-refine', secrets.DOCKERHUB_USERNAME) || '' }}
 
     steps:
       - uses: actions/checkout@11d5960a326750d5838078e36cf38b85af677262 # v4.4.0
@@ -39,7 +40,6 @@ jobs:
           password: ${{ secrets.GITHUB_TOKEN }}
 
       - name: Log in to Docker Hub
-        if: ${{ secrets.DOCKERHUB_USERNAME != '' && secrets.DOCKERHUB_TOKEN != '' }}
         uses: docker/login-action@c94ce9fb468520275223c153574b00df6fe4bcc9 # v3.7.0
         with:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
