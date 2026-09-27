@@ -43,9 +43,9 @@ jobs:
       - name: Publish to npm
         if: ${{ !inputs.dry_run }}
         working-directory: cli
-        run: npm publish --provenance --access public
+        run: npm publish --provenance --access public --tag latest
 
       - name: Dry-run publish
         if: ${{ inputs.dry_run }}
         working-directory: cli
-        run: npm publish --dry-run
+        run: npm publish --tag latest --dry-run
