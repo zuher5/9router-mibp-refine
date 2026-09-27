@@ -100,6 +100,12 @@ docker rm -f 9router
 # re-run the quick start command
 ```
 
+To pin a specific version instead of following `latest`, use a numbered image tag:
+
+```bash
+docker pull decolua/9router:0.5.81
+```
+
 ---
 
 # 🛠 For Developers
@@ -115,6 +121,15 @@ docker run --rm -p 20128:20128 \
   9router
 ```
 
+The Dockerfile uses the official Alpine and npm registries by default. Regional mirrors can be supplied when needed:
+
+```bash
+docker build \
+  --build-arg ALPINE_MIRROR=mirrors.aliyun.com \
+  --build-arg NPM_REGISTRY=https://registry.npmmirror.com/ \
+  -t 9router .
+```
+
 ## Publish (automatic via CI)
 
 Push a git tag `v*` → GitHub Actions builds multi-platform (amd64+arm64) and pushes to:
@@ -125,5 +140,4 @@ Push a git tag `v*` → GitHub Actions builds multi-platform (amd64+arm64) and p
 # Tag and push to trigger automated build and publish
 git tag v1.0.x && git push origin v1.0.x
 ```
-
 Workflow: `.github/workflows/docker-publish.yml`

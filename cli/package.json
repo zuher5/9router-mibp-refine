@@ -1,6 +1,6 @@
 {
   "name": "9router-refine",
-  "version": "1.0.14-refine",
+  "version": "1.0.15-refine",
   "description": "9Router Refine CLI - Start and manage 9Router Refine server",
   "bin": {
     "9router-refine": "./cli.js",
