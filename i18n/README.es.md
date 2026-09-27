@@ -9,7 +9,6 @@
   
   [![npm](https://img.shields.io/npm/v/9router.svg)](https://www.npmjs.com/package/9router-refine)
   [![Downloads](https://img.shields.io/npm/dm/9router.svg)](https://www.npmjs.com/package/9router-refine)
-  [![Docker Pulls](https://img.shields.io/docker/pulls/zuher5/9router-mibp-refine.svg?logo=docker&label=Docker%20pulls)](https://hub.docker.com/r/zuher5/9router-mibp-refine)
   [![GHCR](https://img.shields.io/badge/GHCR-zuher5%2F9router--mibp--refine-blue?logo=github)](https://github.com/zuher5/9router-mibp-refine/pkgs/container/9router-mibp-refine)
   [![License](https://img.shields.io/npm/l/9router.svg)](https://github.com/decolua/9router/blob/main/LICENSE)
 
@@ -1158,7 +1157,6 @@ pm2 startup
 
 Imágenes publicadas (multi-plataforma `linux/amd64` + `linux/arm64`):
 
-- Docker Hub: [`zuher5/9router-mibp-refine`](https://hub.docker.com/r/zuher5/9router-mibp-refine)
 - GHCR: [`ghcr.io/zuher5/9router-mibp-refine`](https://github.com/zuher5/9router-mibp-refine/pkgs/container/9router-mibp-refine)
 
 **Inicio rápido (usa la imagen publicada):**

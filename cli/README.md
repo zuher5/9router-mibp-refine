@@ -8,7 +8,6 @@
 
 [![npm](https://img.shields.io/npm/v/9router-refine.svg)](https://www.npmjs.com/package/9router-refine)
 [![Downloads](https://img.shields.io/npm/dm/9router-refine.svg)](https://www.npmjs.com/package/9router-refine)
-[![Docker Pulls](https://img.shields.io/docker/pulls/zuher5/9router-mibp-refine.svg?logo=docker&label=Docker%20pulls)](https://hub.docker.com/r/zuher5/9router-mibp-refine)
 [![GHCR](https://img.shields.io/badge/GHCR-zuher5%2F9router--mibp--refine-blue?logo=github)](https://github.com/zuher5/9router-mibp-refine/pkgs/container/9router-mibp-refine)
 [![License](https://img.shields.io/npm/l/9router-refine.svg)](https://github.com/zuher5/9router-mibp-refine/blob/master/LICENSE)
 
@@ -57,7 +56,7 @@ docker run -d --name 9router -p 20128:20128 \
   ghcr.io/zuher5/9router-mibp-refine:latest
 ```
 
-Published images: [Docker Hub](https://hub.docker.com/r/zuher5/9router-mibp-refine) • [GHCR](https://github.com/zuher5/9router-mibp-refine/pkgs/container/9router-mibp-refine) (multi-platform amd64/arm64).
+Published image: [GHCR](https://github.com/zuher5/9router-mibp-refine/pkgs/container/9router-mibp-refine) (multi-platform amd64/arm64).
 
 🎉 Dashboard opens at `http://localhost:20128`
 
