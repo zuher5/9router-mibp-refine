@@ -39,10 +39,12 @@ jobs:
 
       - name: Publish to npm
         if: ${{ !inputs.dry_run }}
-        run: npm --prefix cli publish --provenance --access public
+        working-directory: cli
+        run: npm publish --provenance --access public
         env:
           NODE_AUTH_TOKEN: ${{ secrets.NPM_TOKEN }}
 
       - name: Dry-run publish
         if: ${{ inputs.dry_run }}
-        run: npm --prefix cli publish --dry-run
+        working-directory: cli
+        run: npm publish --dry-run
