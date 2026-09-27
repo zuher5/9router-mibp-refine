@@ -1,9 +1,11 @@
-# AGENTS.md — MIBP fork guardrails
+# AGENTS.md — MIBR fork guardrails
 
-> **READ THIS BEFORE EDITING.** This is the **MIBP fork** of `decolua/9router`
-> (`github.com/mhiqrambg/9router-mibp-version`). Upstream is tracked as the
-> `upstream` git remote. This file records hard-won fixes that are easy to
-> silently delete or reintroduce. Each entry has a **DO NOT** and a **WHY**.
+> **READ THIS BEFORE EDITING.** Fork chain:
+> - `decolua/9router` (original upstream)
+>   - └─ `mhiqrambg/9router-mibp-version` (base fork — tracked as git remote `upstream`)
+>     - └─ `zuher5/9router-mibp-refine` (this repo — git remote `origin`)
+>
+> This file records hard-won fixes that are easy to silently delete or reintroduce. Each entry has a **DO NOT** and a **WHY**.
 >
 > If you are about to change something listed here, stop and read the whole
 > entry first. If you believe an entry is obsolete, say so explicitly and get
@@ -137,7 +139,7 @@ re-verify after.
 
 ## 6. Upstream sync procedure
 
-- Remote layout: `origin` = this fork (`zuher5/9router-mibp-refine`), `upstream` = base fork `mhiqrambg/9router-mibp-version` (synced via `.github/workflows/sync-upstream.yml`; upstream `decolua/9router` is base fork's upstream).
+- Remote layout: `origin` = this fork (`zuher5/9router-mibp-refine`), `upstream` = base fork `mhiqrambg/9router-mibp-version` (`git remote add upstream https://github.com/mhiqrambg/9router-mibp-version.git`; synced via `.github/workflows/sync-upstream.yml`). Original upstream `decolua/9router` is base fork's upstream.
 - **Merge, do not rebase** — the fork already has merge-based history; rebasing
   rewrites public history.
 - Work on a branch (`sync/upstream-<ver>`), tag a rollback point
