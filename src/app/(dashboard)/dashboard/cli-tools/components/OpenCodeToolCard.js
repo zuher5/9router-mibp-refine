@@ -1,13 +1,12 @@
 "use client";
 
 import { useState, useEffect, useRef } from "react";
-import { Card, Button, ModelSelectModal, ManualConfigModal, Toggle } from "@/shared/components";
+import { Card, Button, ModelSelectModal, ManualConfigModal } from "@/shared/components";
 import Image from "next/image";
 import BaseUrlSelect from "./BaseUrlSelect";
 import { rememberEndpoint } from "./cliEndpointPresets";
 import ApiKeySelect from "./ApiKeySelect";
 import { matchKnownEndpoint } from "./cliEndpointMatch";
-import { CLI_TOOLS_CONFIG } from "@/shared/constants/config";
 
 export default function OpenCodeToolCard({ tool, isExpanded, onToggle, baseUrl, apiKeys, activeProviders, cloudEnabled, initialStatus, tunnelEnabled, tunnelPublicUrl, tailscaleEnabled, tailscaleUrl }) {
   const [status, setStatus] = useState(initialStatus || null);
@@ -26,8 +25,6 @@ export default function OpenCodeToolCard({ tool, isExpanded, onToggle, baseUrl, 
   const [customBaseUrl, setCustomBaseUrl] = useState("");
   const [selectedModels, setSelectedModels] = useState([]);
   const [activeModel, setActiveModel] = useState("");
-  const [includeCloud, setIncludeCloud] = useState(false);
-  const [cloudBaseUrl, setCloudBaseUrl] = useState(CLI_TOOLS_CONFIG.cloudBaseUrl);
   const selectedModelsRef = useRef([]);
 
   useEffect(() => {
@@ -60,12 +57,9 @@ export default function OpenCodeToolCard({ tool, isExpanded, onToggle, baseUrl, 
       setActiveModel(status.opencode.activeModel);
     }
 
-    // Parse subagent settings from config (V2 agents.explorer or legacy agent.explorer)
-    if (status?.opencode?.subagentModel) {
-      setSubagentModel(status.opencode.subagentModel);
-    }
-    if (typeof status?.opencode?.dualConfigured === "boolean") {
-      setIncludeCloud(status.opencode.dualConfigured);
+    // Parse subagent settings from agent.explorer if exists
+    if (status?.config?.agent?.explorer?.model?.startsWith("9router/")) {
+      setSubagentModel(status.config.agent.explorer.model.replace("9router/", ""));
     }
   }, [status]);
 
@@ -94,8 +88,6 @@ export default function OpenCodeToolCard({ tool, isExpanded, onToggle, baseUrl, 
           models,
           activeModel: validActiveModel,
           subagentModel,
-          includeCloud,
-          cloudBaseUrl,
         }),
       });
     } catch (error) {
@@ -103,16 +95,13 @@ export default function OpenCodeToolCard({ tool, isExpanded, onToggle, baseUrl, 
     }
   };
 
-  // Read 9router baseURL from either V2 (providers.settings) or V1 (provider.options) config
-  const getConfigBaseURL = (cfg) => cfg?.providers?.["9router"]?.settings?.baseURL || cfg?.provider?.["9router"]?.options?.baseURL || "";
-
-  const currentBaseUrl = getConfigBaseURL(status?.config);
+  const currentBaseUrl = status?.config?.provider?.["9router"]?.options?.baseURL || "";
 
   const getConfigStatus = () => {
     if (!status?.installed) return null;
     if (!status.config) return "not_configured";
     if (!status.has9Router) return "not_configured";
-    const url = getConfigBaseURL(status.config);
+    const url = status.config?.provider?.["9router"]?.options?.baseURL || "";
     return matchKnownEndpoint(url, { tunnelPublicUrl, tailscaleUrl }) ? "configured" : "other";
   };
 
@@ -154,9 +143,7 @@ export default function OpenCodeToolCard({ tool, isExpanded, onToggle, baseUrl, 
           apiKey: keyToUse,
           models: selectedModels,
           activeModel: activeModel === "" ? "" : (activeModel || selectedModels[0]),
-          subagentModel: subagentModel,
-          includeCloud,
-          cloudBaseUrl
+          subagentModel: subagentModel
         }),
       });
       const data = await res.json();
@@ -209,37 +196,25 @@ export default function OpenCodeToolCard({ tool, isExpanded, onToggle, baseUrl, 
 
     const modelsObj = {};
     modelsToShow.forEach(m => {
-      modelsObj[m] = { name: m, capabilities: { tools: true, input: ["text", "image"], output: ["text"] } };
+      modelsObj[m] = { name: m, modalities: { input: ["text", "image"], output: ["text"] } };
     });
-
-    const providers = {
-      "9router": {
-        package: "aisdk:@ai-sdk/openai-compatible",
-        settings: { baseURL: getEffectiveBaseUrl(), apiKey: keyToUse },
-        models: modelsObj,
-      },
-    };
-    if (includeCloud) {
-      const cloudUrl = cloudBaseUrl.endsWith("/v1") ? cloudBaseUrl : `${cloudBaseUrl}/v1`;
-      providers[CLI_TOOLS_CONFIG.cloudProviderId] = {
-        package: "aisdk:@ai-sdk/openai-compatible",
-        settings: { baseURL: cloudUrl, apiKey: keyToUse },
-        models: modelsObj,
-      };
-    }
-    // Dual endpoint makes the cloud mirror the default active provider.
-    const defaultProviderId = includeCloud ? CLI_TOOLS_CONFIG.cloudProviderId : "9router";
 
     return [{
       filename: "~/.config/opencode/opencode.json",
       content: JSON.stringify({
-        providers,
-        model: `${defaultProviderId}/${activeModelToShow}`,
-        agents: {
+        provider: {
+          "9router": {
+            npm: "@ai-sdk/openai-compatible",
+            options: { baseURL: getEffectiveBaseUrl(), apiKey: keyToUse },
+            models: modelsObj,
+          },
+        },
+        model: `9router/${activeModelToShow}`,
+        agent: {
           explorer: {
             description: "Fast explorer subagent for codebase exploration",
             mode: "subagent",
-            model: { providerID: defaultProviderId, model: effectiveSubagentModel }
+            model: `9router/${effectiveSubagentModel}`
           }
         }
       }, null, 2),
@@ -301,10 +276,10 @@ export default function OpenCodeToolCard({ tool, isExpanded, onToggle, baseUrl, 
                   <h4 className="font-medium mb-3">Installation Guide</h4>
                   <div className="space-y-3 text-sm">
                     <div>
-                      <p className="text-text-muted mb-1">macOS / Linux / Windows:</p>
-                      <code className="block px-3 py-2 bg-black/5 dark:bg-white/5 rounded font-mono text-xs">npm install -g @opencode/cli</code>
+                      <p className="text-text-muted mb-1">macOS / Linux:</p>
+                      <code className="block px-3 py-2 bg-black/5 dark:bg-white/5 rounded font-mono text-xs">npm install -g opencode-ai</code>
                     </div>
-                    <p className="text-text-muted">After installation, run <code className="px-1 bg-black/5 dark:bg-white/5 rounded">opencode --version</code> to verify.</p>
+                    <p className="text-text-muted">After installation, run <code className="px-1 bg-black/5 dark:bg-white/5 rounded">opencode</code> to verify.</p>
                   </div>
                 </div>
               )}
@@ -332,12 +307,12 @@ export default function OpenCodeToolCard({ tool, isExpanded, onToggle, baseUrl, 
                 </div>
 
                 {/* Current configured */}
-                {getConfigBaseURL(status?.config) && (
+                {status?.config?.provider?.["9router"]?.options?.baseURL && (
                   <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-[8rem_auto_1fr_auto] sm:items-center sm:gap-2">
                     <span className="text-xs font-semibold text-text-main sm:text-right sm:text-sm">Current</span>
                     <span className="material-symbols-outlined hidden text-text-muted text-[14px] sm:inline">arrow_forward</span>
                     <span className="min-w-0 truncate rounded bg-surface/40 px-2 py-2 text-xs text-text-muted sm:py-1.5">
-                      {getConfigBaseURL(status.config)}
+                      {status.config.provider["9router"].options.baseURL}
                     </span>
                   </div>
                 )}
@@ -348,31 +323,6 @@ export default function OpenCodeToolCard({ tool, isExpanded, onToggle, baseUrl, 
                   <span className="material-symbols-outlined hidden text-text-muted text-[14px] sm:inline">arrow_forward</span>
                   <ApiKeySelect value={selectedApiKey} onChange={setSelectedApiKey} apiKeys={apiKeys} cloudEnabled={cloudEnabled} />
                 </div>
-
-                {/* Dual endpoint: also write a cloud mirror provider */}
-                <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-[8rem_auto_1fr] sm:items-center sm:gap-2">
-                  <span className="text-xs font-semibold text-text-main sm:text-right sm:text-sm">Dual endpoint</span>
-                  <span className="material-symbols-outlined hidden text-text-muted text-[14px] sm:inline">arrow_forward</span>
-                  <Toggle
-                    checked={includeCloud}
-                    onChange={setIncludeCloud}
-                    label="Cloud default (Lokal + Cloud)"
-                    description="Writes 9router-cloud and makes it the default; local stays as a manual backup."
-                  />
-                </div>
-                {includeCloud && (
-                  <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-[8rem_auto_1fr_auto] sm:items-center sm:gap-2">
-                    <span className="text-xs font-semibold text-text-main sm:text-right sm:text-sm">Cloud URL</span>
-                    <span className="material-symbols-outlined hidden text-text-muted text-[14px] sm:inline">arrow_forward</span>
-                    <input
-                      type="text"
-                      value={cloudBaseUrl}
-                      onChange={(e) => setCloudBaseUrl(e.target.value)}
-                      placeholder={CLI_TOOLS_CONFIG.cloudBaseUrl}
-                      className="w-full min-w-0 px-2 py-2 bg-surface rounded border border-border text-xs focus:outline-none focus:ring-1 focus:ring-primary/50 sm:py-1.5"
-                    />
-                  </div>
-                )}
 
                 {/* Models */}
                 <div className="grid grid-cols-1 gap-1.5 sm:grid-cols-[8rem_auto_1fr] sm:items-start sm:gap-2">
