@@ -353,6 +353,10 @@ export class OpenCodeExecutor extends BaseExecutor {
       }
       const normalized = normalizeResponsesInput(body.input);
       if (normalized) body.input = normalized;
+      // Chat-only fields left behind by an un-translated (or pretranslated)
+      // body make /inference/v1/responses answer 400 "unknown parameter
+      // `messages`" — the first thing a client sees as connect-then-drop.
+      delete body.messages;
       if (!Array.isArray(body.input) || body.input.length === 0) {
         body.input = [{ type: "message", role: "user", content: [{ type: "input_text", text: "..." }] }];
       }

@@ -20,7 +20,10 @@ async function hasValidCliToken(request) {
 }
 
 // Public API paths — no auth required (LLM API has its own key auth inside handler).
+// /api/bridge/* carries its own x-9r-bridge-key check (timingSafeEqual) in
+// src/app/api/bridge/[...path]/route.js — 9sync talks to it through tunnels.
 const PUBLIC_API_PATHS = [
+  "/api/bridge",
   "/api/health",
   "/api/init",
   "/api/locale",

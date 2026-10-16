@@ -26,7 +26,12 @@ const PROVIDER_ALIAS_NAMES = {
   minimax: "Minimax Coding",
   openai: "OpenAI",
   anthropic: "Anthropic",
-  gemini: "Gemini"
+  gemini: "Gemini",
+  mimo: "Xiaomi MiMo",
+  "xiaomi-mimo": "Xiaomi MiMo",
+  fb: "Freebuff",
+  freebuff: "Freebuff",
+  kimchi: "Kimchi"
 };
 
 const PROVIDER_ID_TO_ALIAS = {
@@ -54,10 +59,24 @@ const PROVIDER_ID_TO_ALIAS = {
   opencode: "oc",
   "opencode-go": "ocg",
   "opencode-zen": "ocz",
+  "xiaomi-mimo": "mimo",
+  mimo: "mimo",
+  freebuff: "fb",
+  fb: "fb",
 };
 
 // Providers usable without stored credentials
 const NO_AUTH_PROVIDERS = new Set(["opencode", "oc"]);
+
+// Generated compatible-node names carry UUIDs ("openai-compatible-chat-<uuid>").
+// Without a friendlier source those raw keys were rendered verbatim — random
+// alphanumeric junk next to the real provider in every model picker.
+function prettifyProviderKey(key) {
+  const s = String(key || "");
+  if (/^openai-compatible-(chat|responses)-/i.test(s)) return "OpenAI Compatible";
+  if (s.startsWith("anthropic-compatible-")) return "Anthropic Compatible";
+  return s;
+}
 
 /**
  * Get all available models grouped by provider + combos (filtered by active connections)
@@ -86,6 +105,21 @@ async function getAvailableModelsGrouped() {
   const models = modelsResult.data?.data || [];
   const combos = [];
   const groups = {};
+  // Node / connection display names for compatible providers only. ACCOUNT rows
+  // (e.g. "Account N" kiro logins) must NOT override the registry display name,
+  // so non-compatible ids stay answered by PROVIDER_ALIAS_NAMES instead.
+  const displayNames = {};
+  const compatibleId = (p) => /^openai-compatible-(chat|responses)-/.test(p) || p.startsWith("anthropic-compatible-");
+  connections.forEach(conn => {
+    const p = conn.provider;
+    if (!p) return;
+    const psd = conn.providerSpecificData || {};
+    if (!compatibleId(p)) return;
+    const name = psd.nodeName || conn.name;
+    if (!name) return;
+    displayNames[p] = displayNames[p] || name;
+    if (psd.prefix) displayNames[psd.prefix] = displayNames[psd.prefix] || name;
+  });
 
   models.forEach(m => {
     if (m.owned_by === "combo") {
@@ -94,6 +128,11 @@ async function getAvailableModelsGrouped() {
       const provider = m.owned_by;
       // Only keep connected providers or noAuth providers
       if (!activeAliases.has(provider)) return;
+      // Orphan compatible ids surface as "openai-compatible-chat-<uuid>" groups
+      // when a provider node was deleted but its key row lingered. Without a
+      // stored prefix nothing routes there — drop the group instead of showing
+      // a random-character duplicate next to the real provider.
+      if (compatibleId(provider) && !displayNames[provider]) return;
       if (!groups[provider]) {
         groups[provider] = [];
       }
@@ -101,7 +140,7 @@ async function getAvailableModelsGrouped() {
     }
   });
 
-  return { combos, groups };
+  return { combos, groups, displayNames };
 }
 
 /**
@@ -113,7 +152,7 @@ async function getAvailableModelsGrouped() {
  */
 async function selectModelFromList(title, currentValue = "", options = {}) {
   const { excludeCombos = false } = options;
-  const { combos: rawCombos, groups } = await getAvailableModelsGrouped();
+  const { combos: rawCombos, groups, displayNames = {} } = await getAvailableModelsGrouped();
   const combos = excludeCombos ? [] : rawCombos;
 
   const totalModels = combos.length + Object.values(groups).flat().length;
@@ -157,7 +196,7 @@ async function selectModelFromList(title, currentValue = "", options = {}) {
   });
 
   sortedProviders.forEach((provider) => {
-    const providerName = PROVIDER_ALIAS_NAMES[provider] || provider;
+    const providerName = displayNames[provider] || PROVIDER_ALIAS_NAMES[provider] || prettifyProviderKey(provider);
     categories.push({
       id: provider,
       name: providerName,

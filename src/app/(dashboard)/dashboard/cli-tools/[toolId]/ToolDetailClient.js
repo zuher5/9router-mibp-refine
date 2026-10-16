@@ -89,7 +89,15 @@ export default function ToolDetailClient({ toolId, machineId }) {
       // below would flip to false and disable the Apply button. Fall back to the
       // connection's own models so these providers are usable from CLI tool pages.
       if (providerModels.length === 0) {
-        const prefix = conn.providerSpecificData?.prefix || alias;
+        const compatPrefix = conn.providerSpecificData?.prefix || "";
+        // Constant must stay in sync with src/shared/constants/providers.js — importing
+        // it here pulls the entire open-sse registry into the CLI-tools client bundle.
+        const isCompatibleId = /openai-compatible-|anthropic-compatible-/.test(String(conn.provider));
+        // Orphan compatible connection: node deleted before a prefix was stored. No
+        // routable namespace exists, and echoing the raw UUID would recreate the
+        // "openai-compatible…<random>" duplicate — drop it instead.
+        if (isCompatibleId && !compatPrefix) return;
+        const prefix = compatPrefix || alias;
         const fallbackModels = [];
         if (conn.defaultModel) fallbackModels.push({ id: conn.defaultModel, name: conn.defaultModel });
         (conn.providerSpecificData?.customModels || []).forEach(m => {

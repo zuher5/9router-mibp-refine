@@ -80,6 +80,14 @@ if (args[0] === "xai" && args[1] === "video") {
   return;
 }
 
+// `9router bridge` prints the x-9r-bridge-key /api/bridge/* accepts. Like
+// connect/show it runs against no server and has no runtime deps.
+if (args[0] === "bridge") {
+  const { run } = require("./src/cli/commands/bridge");
+  run();
+  return;
+}
+
 // `9router connect <url>` configures local CLI tools against a remote server, and
 // `9router show` prints what they're currently set to — no local server, no
 // runtime deps. Usable via `npx 9router …`.
@@ -173,6 +181,8 @@ Commands:
                       (npx 9router connect http://host:20128 — no install needed)
   show [tool…]        Show each CLI tool's current 9router config and models
                       (e.g. 9router show claude)
+  bridge              Print the x-9r-bridge-key /api/bridge/* accepts
+                      (created on first run; used by 9sync tooling)
   xai video --prompt "..." --output video.mp4
                       Generate a Grok Imagine video via the running gateway
                       (see: ${APP_NAME} xai video --help)

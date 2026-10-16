@@ -243,6 +243,10 @@ export default function ModelSelectModal({
       return (indexA === -1 ? 999 : indexA) - (indexB === -1 ? 999 : indexB);
     });
 
+    // One compatible-prefix group max, even when several connections point at
+    // the same node.
+    const seenCompatiblePrefixes = new Set();
+
     sortedProviderIds.forEach((providerId) => {
       const alias = getProviderAlias(providerId);
       const providerInfo = allProviders[providerId] || { name: providerId, color: "#666" };
@@ -322,8 +326,23 @@ export default function ModelSelectModal({
         // Find connection object to get prefix synchronously without waiting for providerNodes fetch
         const connection = activeProviders.find(p => p.provider === providerId);
         const matchedNode = providerNodes.find(node => node.id === providerId);
-        const displayName = matchedNode?.name || connection?.name || providerInfo.name;
-        const nodePrefix = connection?.providerSpecificData?.prefix || matchedNode?.prefix || providerId;
+        // Prefer the user-visible node name (persisted as nodeName on the connection,
+        // mirrored from providerNodes) over the raw generated provider id.
+        const displayName = connection?.providerSpecificData?.nodeName
+          || matchedNode?.name
+          || connection?.name
+          || providerInfo.name;
+        // Fall back to "" instead of providerId: an orphan (provider node deleted /
+        // never created) has no routing prefix, and keying the group by the raw
+        // "openai-compatible-<type>-<uuid>" id is exactly the random-character
+        // duplicate users see next to the real provider. Orphans are skipped below.
+        const nodePrefix = connection?.providerSpecificData?.prefix || matchedNode?.prefix || "";
+        // Orphan guard: without a prefix nothing routes there and nothing can be
+        // added to modelAliases that would ever resolve, so render nothing.
+        if (!nodePrefix) return;
+        // Two connections to the same node must not render twin groups.
+        if (seenCompatiblePrefixes.has(nodePrefix)) return;
+        seenCompatiblePrefixes.add(nodePrefix);
 
         // Aliases are stored using the raw providerId as key (e.g. "openai-compatible-chat-<uuid>/glm-4.7"),
         // so we must filter by providerId, not by the display prefix.
